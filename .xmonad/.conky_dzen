@@ -1,0 +1,24 @@
+conky.config = {
+    lua_load = '/home/maksis/.xmonad/conky_functions.lua',
+    background = true,
+    out_to_console = true,
+    out_to_x = false,
+    update_interval = 1,
+};
+
+ 
+conky.text = [[
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/cpu.xbm) ^fg(\#FFFFFF)${cpu}%\
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/mem.xbm) ^fg(\#FFFFFF)${memperc}%\
+^fg(\#98CC0A) ${if_existing /proc/net/route wlan0} ${endif}\
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/bat_full_01.xbm)  ^fg(\#EEEEEE)${battery_percent}%\
+^fg(\#CC0A0A) ${if_match ${exec acpi -b | grep -o Discharging | wc -l} == 1} (DISCHARING) ${endif}\
+${if_match ${battery_percent} < 25}\
+${if_match ${lua conky_binary_oscillator} == 0} ^fg(\#CC0A0A)LOW!${endif}\
+${if_match ${lua conky_binary_oscillator} == 1} ^fg(\#CCBF0A)LOW!${endif}\
+${endif}\
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/temp.xbm) ^fg(\#EEEEEE)${acpitemp}°C\
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/phones.xbm) ^fg(\#EEEEEE)${exec amixer -c 1 -M -D pulse get Master | grep -oP "[0-9]+%" | head -n1}\
+^fg(\#98CC0A) ^i(/home/maksis/.xmonad/dzen2/clock.xbm)\
+^fg(\#EEEEEE) ${time %d.%m.%Y} ^fg(\#98CC0A) ${time %R}
+]];
