@@ -1,0 +1,8 @@
+[Unit]
+Description=Run syncoid every 2h
+Requires=syncoid-rpool.service
+[Timer]
+OnCalendar=hourly
+Persistent=true
+[Install]
+WantedBy=timers.target
