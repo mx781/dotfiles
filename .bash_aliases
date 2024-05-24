@@ -16,6 +16,9 @@ alias pbpaste='xclip -selection clipboard -o'
 alias config-keyb-old="setxkbmap lv -variant apostrophe"
 alias config-keyb="setxkbmap lv_pok3r_p1" 
 
+# cmds to launch on login
+alias config-startup="gnome-session-properties"
+
 # screen
 alias single="$HOME/.screenlayout/single.sh"
 alias dual="$HOME/.screenlayout/dual-ultrawide.sh"
@@ -51,6 +54,8 @@ alias reset-xserver="sudo systemctl restart display-manager"
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
 alias mandra="cd /home/maksis/hub/maxtor/mandragora && source env/bin/activate"
+alias knowledge="cd /home/maksis/hub/knowledge"
+alias experiments="cd /home/maksis/hub/experiments && source venv/bin/activate"
 
 ## imbue
 alias imbue="cd /home/maksis/hub/testgrounds/generally_intelligent && source venv/311/bin/activate && source science/secrets/environment_vars/controller_vars.sh && source science/secrets/environment_vars/bashenv_secrets.sh"
