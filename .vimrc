@@ -195,6 +195,10 @@ nmap <C-a> eli<C-n><C-n>
 nmap <leader>x :call jupyter_ascending#sync()<cr><Plug>JupyterExecute
 let g:jupyter_ascending_auto_write = v:false
 
+""Mini-plugins
+:command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
+:command! -range Decrypt :'<,'>!gpg -dq
+
 "Project-specific settings
 silent! so .vimlocal
 
