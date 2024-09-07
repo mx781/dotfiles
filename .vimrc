@@ -197,8 +197,8 @@ nmap <C-a> eli<C-n><C-n>
 nmap <leader>x :call jupyter_ascending#sync()<cr><Plug>JupyterExecute
 let g:jupyter_ascending_auto_write = v:false
 
-""Molten
-let g:cell = "^# \\?%%"
+""Notebooks, a la mx (with inspiration from ov and qq)
+let g:cell = "^# \\?%%\s*$"
 nmap <leader>mz o# %%<cr><esc>
 nmap <leader>ma O# %%<cr><esc>
 
@@ -223,6 +223,8 @@ function! Cell()
     if l:endPos == 0
       let l:endPos = line('$') + 1
     endif
+    " Exclude the cell marker
+    let l:startPos = l:startPos + 1
     call cursor(l:startPos, 1)
     normal! v
     call cursor(l:endPos - 1, 1)
@@ -230,86 +232,6 @@ function! Cell()
   endif
 endfunction
 
-function! MoltenGetFileKernelPath()
-    return '/tmp' . expand('%:p') . '.json'
-endfunction
-
-function! MoltenFileKernelRunning()
-    call system('jupyter console --existing ' . MoltenGetFileKernelPath() . ' --show-config')
-    if v:shell_error == 0
-        return v:true
-    else
-        return v:false
-    endif
-endfunction
-
-function! MoltenStartFileKernel()
-    let l:kernel_path = MoltenGetFileKernelPath()
-    if MoltenFileKernelRunning()
-        echo "Kernel " . l:kernel_path . " already running"
-        return
-    endif
-    call system('mkdir -p /tmp' . expand('%:p:h'))
-    call system('touch /tmp' . expand('%:p') . '.json')
-    call jobstart(['sh', '-c', 'jupyter kernel --kernel=python3 --KernelManager.connection_file ' . l:kernel_path], {'detach': v:true})
-    echo "File kernel " . l:kernel_path . " started"
-endfunction
-
-function! MoltenStopFileKernel()
-    if !MoltenFileKernelRunning()
-        echo "No running file kernel found"
-        return
-    endif
-
-    let l:kernel_path = MoltenGetFileKernelPath()
-    call system('pkill -f "KernelManager.connection_file ' . l:kernel_path . '"')
-    let return_code = v:shell_error
-    if v:shell_error != 0
-        echo "Failed to stop kernel" . kernel_path . "; return code: " . return_code
-    else
-        echo "Kernel " . kernel_path . " stopped"
-    endif
-endfunction
-
-function! MoltenRestartFileKernel()
-    call MoltenStopFileKernel()
-    call MoltenStartFileKernel()
-endfunction
-
-:command! MoltenStartFileKernel :call MoltenStartFileKernel()
-:command! MoltenStopFileKernel :call MoltenStopFileKernel()
-:command! MoltenRestartFileKernel :call MoltenRestartFileKernel()
-command! MoltenConnectToFileKernel execute ':MoltenInit ' . MoltenGetFileKernelPath()
-:command! MoltenCopyFileKernelDebugCommand let @+ = 'jupyter console --existing ' . MoltenGetFileKernelPath()
-
-let g:molten_wrap_output = v:true
-nnoremap <silent>       <leader>m<cr> :MoltenInit<cr>
-"""<C-CR> and <S-CR> doesn't work because sakura?
-nnoremap <silent> <leader><cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
-nnoremap <silent> <leader><s-cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
-"""Disabled because makes space typing weird
-" inoremap <silent> <leader><cr> <esc>:call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
-" inoremap <silent> <S-CR> <esc>:call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
-nnoremap <silent>       <leader>mr :MoltenEvaluateLine<CR>
-xnoremap <silent>       <leader>m  :<C-u>MoltenEvaluateVisual<CR>
-nnoremap <silent>       <leader>me :MoltenReevaluateCell<CR>
-nnoremap <silent>       <leader>mx :MoltenDelete<CR>
-nnoremap <silent>       <leader>mq :MoltenDeinit<CR>
-nnoremap <silent>       <leader>m0 :MoltenRestart<CR>
-nnoremap <silent>       <leader>mi :MoltenInterrupt<CR>
-nnoremap <silent>       <leader>mg :MoltenGoto<CR>
-nnoremap <silent>       <leader>mw :MoltenSave<CR>
-nnoremap <silent>       <leader>ml :MoltenLoad<CR>
-nnoremap <silent>       <leader>mn :MoltenNext<CR>
-nnoremap <silent>       <leader>mp :MoltenPrev<CR>
-nnoremap <silent>       <leader>mo :MoltenShowOutput<CR>
-nnoremap <silent>       <C-M-o> :noautocmd MoltenEnterOutput<CR>
-nnoremap <silent>       go :noautocmd MoltenEnterOutput<CR>
-nnoremap <silent>       gh :MoltenHideOutput<CR>
-nnoremap <silent>       gi :MoltenImagePopup<CR>
-nnoremap <silent>       gb :MoltenOpenInBrowser<CR>
-
-""Notebooks, a la mx
 function! GetFileNotebookSession()
     let l:project = fnamemodify(getcwd(), ":t")
     let l:file = expand("%:t:r")
@@ -334,20 +256,24 @@ function! OpenFileNotebook()
 endfunction
 
 function! RunCell()
+  call Cell()
+  normal! "+y
 
-"function! OpenFileNotebook()
-"    "make a vim vsplit, start terminal, attach to tmux sesh there, go back"
-"    "like this but with tmux
-"    execute vsplit | execute 'normal <C-w>w' | execute ":terminal" | execute 'startinsert' | call feedkeys("ipython<cr><Esc><C-w>w", 't')
-"    " let l:session = GetFileNotebookSession()
-"    " execute "vsplit | execute 'normal <C-w>w' | execute ':terminal' | execute 'startinsert'"
-"    " call feedkeys('tmux attach-session -t ' . l:session . '\<CR>\<Esc>\<C-w>w', 't')
-"endfunction
+  "Remove comment marker before magics (so python file can be valid syntax)
+  let l:lines = split(@+, "\n")
+  let l:modified_lines = map(l:lines, 'substitute(v:val, "^# %", "%", "")')
+  let @+ = join(l:modified_lines, "\n")
+
+  call feedkeys("\<C-w>l")
+  call feedkeys("\"+pA\<CR>\<CR>")
+  call feedkeys("\<Esc>\<C-w>h")
+endfunction
 
 command! MakeFileNotebook :call MakeFileNotebook()
 command! OpenFileNotebook :call OpenFileNotebook()
-nnoremap <silent> <leader><cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
-nnoremap <silent> <leader><s-cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
+
+nnoremap <silent> <leader><cr> :call RunCell()<cr>:call setpos('.', g:saved_cursor)<cr>
+nnoremap <silent> <leader><s-cr> :call RunCell()<cr>:call search(g:cell, 'W')<cr>
 
 ""Mini-plugins
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
