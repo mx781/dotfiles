@@ -102,7 +102,9 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
         , ((winMask, xK_semicolon), sendMessage NextLayout)
         , ((winMask, xK_quotedbl), sendMessage FirstLayout)
   , ((winMask .|. shiftMask, xK_q), io (exitWith ExitSuccess))
-  , ((winMask, xK_Return), spawn "rofi -rnow -show run")
+  -- TODO
+  -- , ((winMask, xK_Return), spawn "rofi -run-list-command '. ~/scripts/get_rofi_aliases.sh' -run-command '/bin/bash -i -c \'{cmd}\''  -show run -rnow")
+  , ((winMask, xK_Return), spawn "rofi -show run")
   , ((winMask, xK_slash), spawn "rofi -show window")
   , ((winMask, xK_r), spawn "rofi -show ssh")
   -- , ((winMask, xK_f), spawn "rofi -show fb -modi fb:~/linux/rofi-file-browser.sh")

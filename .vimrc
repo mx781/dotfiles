@@ -12,6 +12,7 @@ set hidden
 " nmap <C-h> :bp<CR>
 nmap <C-A-n> :enew<CR>
 nnoremap <leader>b :ls<cr>:b<space>
+tnoremap <Esc> <C-\><C-n>
 
 set clipboard+=unnamedplus
 inoremap <C-v> <C-o>:set paste<CR><C-r>+<C-o>:set paste!<CR>
@@ -32,7 +33,8 @@ set colorcolumn=80,120
 set termguicolors
 
 let g:mapleader=" "
-let g:python3_host_prog="/home/maksis/.pyenv/shims/python"
+" let g:python3_host_prog="/home/maksis/.pyenv/shims/python"
+let g:python3_host_prog=substitute(system("which python3"), "\n", '', 'g')
 
 "General remaps
 ""Shift highlighted lines around
@@ -44,9 +46,8 @@ nnoremap n nzzzv
 nnoremap N Nzzzv
 ""Show search matches
 set shortmess-=S
-""Hide highlights manually
-nnoremap <leader>h :nohl<CR>
-
+""Toggle highlights
+nnoremap <leader>h :set invhlsearch<CR>
 
 
 ""Paste in place (viw_p) without losing buffer
@@ -109,8 +110,9 @@ call plug#begin()
     "Navigation
     Plug 'ggandor/leap.nvim'
 
-    "Misc
+    "Jupyter
     Plug 'untitled-ai/jupyter_ascending.vim'
+    Plug 'benlubas/molten-nvim'
 
     "Git
     Plug 'tpope/vim-fugitive'
@@ -195,9 +197,167 @@ nmap <C-a> eli<C-n><C-n>
 nmap <leader>x :call jupyter_ascending#sync()<cr><Plug>JupyterExecute
 let g:jupyter_ascending_auto_write = v:false
 
+""Molten
+let g:cell = "^# \\?%%"
+nmap <leader>mz o# %%<cr><esc>
+nmap <leader>ma O# %%<cr><esc>
+
+function! SearchAndJump(pattern, direction, defaultAction)
+  let l:line = search(a:pattern, a:direction)
+  if l:line != 0
+    silent execute "normal! " . l:line . "G"
+  else
+    silent execute "normal! " . a:defaultAction
+  endif
+endfunction
+nnoremap <silent> { :call SearchAndJump(g:cell, 'bW', '{')<cr>
+nnoremap <silent> } :call SearchAndJump(g:cell, 'W', '}')<cr>
+
+function! Cell()
+  let g:saved_cursor = getpos('.')
+  normal! l
+  let l:startPos = search(g:cell, 'bW')
+  let l:endPos = search(g:cell, 'W')
+  if l:startPos > 0
+    echomsg l:endPos
+    if l:endPos == 0
+      let l:endPos = line('$') + 1
+    endif
+    call cursor(l:startPos, 1)
+    normal! v
+    call cursor(l:endPos - 1, 1)
+    normal! $
+  endif
+endfunction
+
+function! MoltenGetFileKernelPath()
+    return '/tmp' . expand('%:p') . '.json'
+endfunction
+
+function! MoltenFileKernelRunning()
+    call system('jupyter console --existing ' . MoltenGetFileKernelPath() . ' --show-config')
+    if v:shell_error == 0
+        return v:true
+    else
+        return v:false
+    endif
+endfunction
+
+function! MoltenStartFileKernel()
+    let l:kernel_path = MoltenGetFileKernelPath()
+    if MoltenFileKernelRunning()
+        echo "Kernel " . l:kernel_path . " already running"
+        return
+    endif
+    call system('mkdir -p /tmp' . expand('%:p:h'))
+    call system('touch /tmp' . expand('%:p') . '.json')
+    call jobstart(['sh', '-c', 'jupyter kernel --kernel=python3 --KernelManager.connection_file ' . l:kernel_path], {'detach': v:true})
+    echo "File kernel " . l:kernel_path . " started"
+endfunction
+
+function! MoltenStopFileKernel()
+    if !MoltenFileKernelRunning()
+        echo "No running file kernel found"
+        return
+    endif
+
+    let l:kernel_path = MoltenGetFileKernelPath()
+    call system('pkill -f "KernelManager.connection_file ' . l:kernel_path . '"')
+    let return_code = v:shell_error
+    if v:shell_error != 0
+        echo "Failed to stop kernel" . kernel_path . "; return code: " . return_code
+    else
+        echo "Kernel " . kernel_path . " stopped"
+    endif
+endfunction
+
+function! MoltenRestartFileKernel()
+    call MoltenStopFileKernel()
+    call MoltenStartFileKernel()
+endfunction
+
+:command! MoltenStartFileKernel :call MoltenStartFileKernel()
+:command! MoltenStopFileKernel :call MoltenStopFileKernel()
+:command! MoltenRestartFileKernel :call MoltenRestartFileKernel()
+command! MoltenConnectToFileKernel execute ':MoltenInit ' . MoltenGetFileKernelPath()
+:command! MoltenCopyFileKernelDebugCommand let @+ = 'jupyter console --existing ' . MoltenGetFileKernelPath()
+
+let g:molten_wrap_output = v:true
+nnoremap <silent>       <leader>m<cr> :MoltenInit<cr>
+"""<C-CR> and <S-CR> doesn't work because sakura?
+nnoremap <silent> <leader><cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
+nnoremap <silent> <leader><s-cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
+"""Disabled because makes space typing weird
+" inoremap <silent> <leader><cr> <esc>:call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
+" inoremap <silent> <S-CR> <esc>:call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
+nnoremap <silent>       <leader>mr :MoltenEvaluateLine<CR>
+xnoremap <silent>       <leader>m  :<C-u>MoltenEvaluateVisual<CR>
+nnoremap <silent>       <leader>me :MoltenReevaluateCell<CR>
+nnoremap <silent>       <leader>mx :MoltenDelete<CR>
+nnoremap <silent>       <leader>mq :MoltenDeinit<CR>
+nnoremap <silent>       <leader>m0 :MoltenRestart<CR>
+nnoremap <silent>       <leader>mi :MoltenInterrupt<CR>
+nnoremap <silent>       <leader>mg :MoltenGoto<CR>
+nnoremap <silent>       <leader>mw :MoltenSave<CR>
+nnoremap <silent>       <leader>ml :MoltenLoad<CR>
+nnoremap <silent>       <leader>mn :MoltenNext<CR>
+nnoremap <silent>       <leader>mp :MoltenPrev<CR>
+nnoremap <silent>       <leader>mo :MoltenShowOutput<CR>
+nnoremap <silent>       <C-M-o> :noautocmd MoltenEnterOutput<CR>
+nnoremap <silent>       go :noautocmd MoltenEnterOutput<CR>
+nnoremap <silent>       gh :MoltenHideOutput<CR>
+nnoremap <silent>       gi :MoltenImagePopup<CR>
+nnoremap <silent>       gb :MoltenOpenInBrowser<CR>
+
+""Notebooks, a la mx
+function! GetFileNotebookSession()
+    let l:project = fnamemodify(getcwd(), ":t")
+    let l:file = expand("%:t:r")
+    return l:project . "/" . l:file
+endfunction
+
+function! MakeFileNotebook()
+    let l:session = GetFileNotebookSession()
+    call system("tmux new-session -d -s " . l:session)
+    let l:venv = trim(system("echo $VIRTUAL_ENV"))
+    call system("tmux send-keys -t " . l:session . " 'source " . l:venv . "/bin/activate' ENTER")
+    call system("tmux send-keys -t " . l:session . " 'ipython' ENTER")
+endfunction
+
+function! OpenFileNotebook()
+    let l:session = GetFileNotebookSession()
+    execute 'vsplit'
+    execute 'wincmd w'
+    execute 'terminal'
+    execute 'startinsert'
+    call feedkeys("tmux attach-session -t " . l:session . "\<CR>\<Esc>\<C-w>w", 't')
+endfunction
+
+function! RunCell()
+
+"function! OpenFileNotebook()
+"    "make a vim vsplit, start terminal, attach to tmux sesh there, go back"
+"    "like this but with tmux
+"    execute vsplit | execute 'normal <C-w>w' | execute ":terminal" | execute 'startinsert' | call feedkeys("ipython<cr><Esc><C-w>w", 't')
+"    " let l:session = GetFileNotebookSession()
+"    " execute "vsplit | execute 'normal <C-w>w' | execute ':terminal' | execute 'startinsert'"
+"    " call feedkeys('tmux attach-session -t ' . l:session . '\<CR>\<Esc>\<C-w>w', 't')
+"endfunction
+
+command! MakeFileNotebook :call MakeFileNotebook()
+command! OpenFileNotebook :call OpenFileNotebook()
+nnoremap <silent> <leader><cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call setpos('.', g:saved_cursor)<cr>
+nnoremap <silent> <leader><s-cr> :call Cell()<cr>:<C-u>MoltenEvaluateVisual<cr>:call search(g:cell)<cr>
+
 ""Mini-plugins
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
 :command! -range Decrypt :'<,'>!gpg -dq
+
+hi default BookmarkCol ctermfg=blue ctermbg=lightblue cterm=bold guifg=DarkBlue guibg=#d0d0ff gui=bold
+sign define MyBookmark linehl=BookmarkCol
+nnoremap <leader>ba :exe 'sign place ' . line('.') . ' name=MyBookmark line=' . line(".") . ' buffer='.winbufnr(0)<CR>
+nnoremap <leader>bd :exec 'sign unplace ' . line('.')<CR>
+nnoremap <leader>bl :sign list<CR>
 
 "Project-specific settings
 silent! so .vimlocal

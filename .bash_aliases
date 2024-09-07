@@ -53,7 +53,7 @@ alias reset-xserver="sudo systemctl restart display-manager"
 
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
-alias mandra="cd /home/maksis/hub/maxtor/mandragora && source env/bin/activate"
+alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate"
 alias knowledge="cd /home/maksis/hub/knowledge"
 alias experiments="cd /home/maksis/hub/experiments && source venv/bin/activate"
 
