@@ -198,7 +198,8 @@ nmap <leader>x :call jupyter_ascending#sync()<cr><Plug>JupyterExecute
 let g:jupyter_ascending_auto_write = v:false
 
 ""Notebooks, a la mx (with inspiration from ov and qq)
-let g:cell = "^# \\?%%\s*$"
+" let g:cell = "^# \\?%%\s*$"
+let g:cell = "^# \\?%%\\(\\ \\[markdown\\]\\)\\?\s*$"
 nmap <leader>mz o# %%<cr><esc>
 nmap <leader>ma O# %%<cr><esc>
 
@@ -240,10 +241,12 @@ endfunction
 
 function! MakeFileNotebook()
     let l:session = GetFileNotebookSession()
-    call system("tmux new-session -d -s " . l:session)
     let l:venv = trim(system("echo $VIRTUAL_ENV"))
-    call system("tmux send-keys -t " . l:session . " 'source " . l:venv . "/bin/activate' ENTER")
-    call system("tmux send-keys -t " . l:session . " 'ipython' ENTER")
+    call system("mkdir -p /tmp/dtach/" . l:session)
+    call system("dtach -n /tmp/dtach/" . l:session . "/session bash -c 'source " . l:venv . "/bin/activate; ipython'")
+    " call system("tmux new-session -d -s " . l:session)
+    " call system("tmux send-keys -t " . l:session . " 'source " . l:venv . "/bin/activate' ENTER")
+    " call system("tmux send-keys -t " . l:session . " 'ipython' ENTER")
 endfunction
 
 function! OpenFileNotebook()
@@ -252,12 +255,12 @@ function! OpenFileNotebook()
     execute 'wincmd w'
     execute 'terminal'
     execute 'startinsert'
-    call feedkeys("tmux attach-session -t " . l:session . "\<CR>\<Esc>\<C-w>w", 't')
+    " call feedkeys("tmux attach-session -t " . l:session . "\<CR>\<Esc>\<C-w>w", 't')
+    call feedkeys("dtach -a /tmp/dtach/" . l:session . "/session\<CR>\<Esc>\<C-w>w", 't')
 endfunction
 
-function! RunCell()
-  call Cell()
-  normal! "+y
+function! RunSelection() range
+  execute a:firstline . ',' . a:lastline . 'y +'
 
   "Remove comment marker before magics (so python file can be valid syntax)
   let l:lines = split(@+, "\n")
@@ -272,8 +275,14 @@ endfunction
 command! MakeFileNotebook :call MakeFileNotebook()
 command! OpenFileNotebook :call OpenFileNotebook()
 
-nnoremap <silent> <leader><cr> :call RunCell()<cr>:call setpos('.', g:saved_cursor)<cr>
-nnoremap <silent> <leader><s-cr> :call RunCell()<cr>:call search(g:cell, 'W')<cr>
+nnoremap <silent> <leader><cr> :call Cell()<cr>:call RunSelection()<cr>:call setpos('.', g:saved_cursor)<cr>
+nnoremap <silent> <leader><s-cr> :call Cell()<cr>:call RunSelection()<cr>:call search(g:cell, 'W')<cr>
+vnoremap <silent> <leader><cr> :call RunSelection()<cr>:call setpos('.', g:saved_cursor)<cr>
+
+nnoremap <silent> <C-s> <Esc><C-w>lA
+inoremap <silent> <C-s> <Esc><C-w>lA
+tnoremap <silent> <C-s> <C-\><C-n><C-w>h
+
 
 ""Mini-plugins
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
