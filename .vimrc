@@ -3,7 +3,7 @@ set number relativenumber
 set scrolloff=5
 
 set ignorecase
-set smartcase 
+set smartcase
 set nohlsearch
 set incsearch
 
@@ -22,6 +22,8 @@ set expandtab
 set tabstop=8 softtabstop=0
 autocmd FileType typescriptreact setlocal shiftwidth=2 tabstop=2
 autocmd FileType typescript setlocal shiftwidth=2 tabstop=2
+autocmd FileType markdown setlocal shiftwidth=2 tabstop=2
+
 
 set noswapfile
 set nobackup
@@ -88,6 +90,9 @@ call plug#begin()
     Plug 'tpope/vim-commentary'
     Plug 'mg979/vim-visual-multi'
     Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
+
+    "Other syntax highlighting
+    Plug 'Glench/Vim-Jinja2-Syntax'
   
     "LSP Support
     Plug 'williamboman/mason.nvim'
@@ -100,9 +105,26 @@ call plug#begin()
     Plug 'hrsh7th/nvim-cmp'
     Plug 'hrsh7th/cmp-nvim-lsp'
     Plug 'L3MON4D3/LuaSnip'
-    Plug 'VonHeikemen/lsp-zero.nvim', {'branch': 'v3.x'}
+    " Plug 'VonHeikemen/lsp-zero.nvim', {'branch': 'v3.x'}
 
     Plug 'github/copilot.vim'
+
+    ""Avante
+    """Deps
+    " Plug 'nvim-treesitter/nvim-treesitter'
+    Plug 'stevearc/dressing.nvim'
+    " Plug 'nvim-lua/plenary.nvim'
+    Plug 'MunifTanjim/nui.nvim'
+    Plug 'MeanderingProgrammer/render-markdown.nvim'
+
+    """Optional deps
+    " Plug 'hrsh7th/nvim-cmp'
+    Plug 'nvim-tree/nvim-web-devicons' "or Plug 'echasnovski/mini.icons'
+    Plug 'HakonHarnes/img-clip.nvim'
+    Plug 'zbirenbaum/copilot.lua'
+
+    """Yay, pass source=true if you want to build from source
+    Plug 'yetone/avante.nvim', { 'branch': 'main', 'do': 'make' }
 
     "Refactoring
     " Plug 'python-rope/ropevim'
@@ -112,10 +134,13 @@ call plug#begin()
 
     "Jupyter
     Plug 'untitled-ai/jupyter_ascending.vim'
-    Plug 'benlubas/molten-nvim'
 
     "Git
     Plug 'tpope/vim-fugitive'
+
+    "Obsidian
+    Plug 'nvim-lua/plenary.nvim'
+    Plug 'epwalsh/obsidian.nvim'
 call plug#end()
 
 "Plugin configs and remaps 
@@ -163,10 +188,20 @@ let g:highlightedyank_highlight_duration = 350
 nmap <C-_> gc$
 vmap <C-_> gc$
 
+""Obsidian
+"""Allow for markdown preview (checked boxes)
+autocmd FileType md setlocal conceallevel=1
+
 ""Treesitter/folding
 set foldmethod=expr
 set foldexpr=nvim_treesitter#foldexpr()
 set nofoldenable 
+
+""Copilot
+let g:copilot_filetypes = {
+\ 'markdown': v:false,
+\ 'md': v:false,
+\ }
 
 "" undo/redo
 """ {} not in jumplist
@@ -242,11 +277,11 @@ endfunction
 function! MakeFileNotebook()
     let l:session = GetFileNotebookSession()
     let l:venv = trim(system("echo $VIRTUAL_ENV"))
-    call system("mkdir -p /tmp/dtach/" . l:session)
-    call system("dtach -n /tmp/dtach/" . l:session . "/session bash -c 'source " . l:venv . "/bin/activate; ipython'")
-    " call system("tmux new-session -d -s " . l:session)
-    " call system("tmux send-keys -t " . l:session . " 'source " . l:venv . "/bin/activate' ENTER")
-    " call system("tmux send-keys -t " . l:session . " 'ipython' ENTER")
+    " call system("mkdir -p /tmp/dtach/" . l:session)
+    " call system("dtach -n /tmp/dtach/" . l:session . "/session bash -c 'source " . l:venv . "/bin/activate; while true; do ipython; done'")
+    call system("tmux set-option -g history-limit 50000 \\; new-session -d -s " . l:session)
+    call system("tmux send-keys -t " . l:session . " 'source " . l:venv . "/bin/activate' ENTER")
+    call system("tmux send-keys -t " . l:session . " 'while true; do ipython; done' ENTER")
 endfunction
 
 function! OpenFileNotebook()
@@ -255,8 +290,13 @@ function! OpenFileNotebook()
     execute 'wincmd w'
     execute 'terminal'
     execute 'startinsert'
-    " call feedkeys("tmux attach-session -t " . l:session . "\<CR>\<Esc>\<C-w>w", 't')
-    call feedkeys("dtach -a /tmp/dtach/" . l:session . "/session\<CR>\<Esc>\<C-w>w", 't')
+    call feedkeys("tmux attach-session -t " . l:session . "\<CR>\<Esc>\<C-w>w", 't')
+    " call feedkeys("dtach -a /tmp/dtach/" . l:session . "/session\<CR>\<Esc>\<C-w>w", 't')
+endfunction
+
+function! FileNotebook()
+  call MakeFileNotebook()
+  call OpenFileNotebook()
 endfunction
 
 function! RunSelection() range
@@ -274,6 +314,7 @@ endfunction
 
 command! MakeFileNotebook :call MakeFileNotebook()
 command! OpenFileNotebook :call OpenFileNotebook()
+command! FileNotebook :call FileNotebook()
 
 nnoremap <silent> <leader><cr> :call Cell()<cr>:call RunSelection()<cr>:call setpos('.', g:saved_cursor)<cr>
 nnoremap <silent> <leader><s-cr> :call Cell()<cr>:call RunSelection()<cr>:call search(g:cell, 'W')<cr>
@@ -294,6 +335,76 @@ nnoremap <leader>ba :exe 'sign place ' . line('.') . ' name=MyBookmark line=' . 
 nnoremap <leader>bd :exec 'sign unplace ' . line('.')<CR>
 nnoremap <leader>bl :sign list<CR>
 
+fun! NFH_png(filename)
+  " first want to cd to the directory of the current document that's being
+  " edited, otherwise relative paths won't work.
+  let directory_containing_file = expand('%:p:h')
+  let var_to_call= "cd '" . directory_containing_file . "' && feh -B '#999999' -A ';realpath \"%F\" | xclip -selection clipboard' '" . a:filename . "' &"
+  "call system("feh -B black " . a:filename . "&")
+  call system(var_to_call)
+  echo var_to_call
+  " echo var_to_call
+endfun
+
+let g:netrw_browsex_viewer = '-'
+
+
+nnoremap <silent> p :call NotemasterPaste()<cr>
+
+" TODO: make it more flexible in regards to where the images are pasted and
+" the mechanism behind it. currently, always just pastes in same folder as
+" file, and links in the same way. But an option to save in a separate dir
+" would have to  be customized. Also unsure about how semantically clean this
+" is.
+"
+
+function! NotemasterPaste() abort
+  let targets = filter(
+      \ systemlist('xclip -selection clipboard -t TARGETS -o'),
+      \ 'v:val =~# ''image''')
+  if empty(targets)
+"     normal p
+    let reg_specifier = v:register
+    let cmd = 'normal! "' . reg_specifier . 'p'
+    execute cmd
+    return
+  endif
+
+  " if we get this far, we're pasting an image -> want to do in new line
+  " always.
+  execute "normal! o\<Esc>"
+
+  let outdir = "attachments"
+  if !isdirectory(outdir)
+    call mkdir(outdir)
+  endif
+
+  let mimetype = targets[0]
+  let extension = split(mimetype, '/')[-1]
+
+  let filename_no_extension = system('find ' . outdir . ' -name "pasted_image_*" -printf "%f\n" | sort -V | tail -n -1 | sed -E ''s/(pasted_image_)([0-9]+)(\..*)/echo "\1$((\2+1))"/e''')
+  if filename_no_extension == ""
+    let filename_no_extension = 'pasted_image_0'
+  endif
+  let filename_no_extension = substitute(filename_no_extension, '\n$', '', '')
+
+  let filename = filename_no_extension . '.' . extension
+  let dir_with_filename = outdir . '/' . filename
+
+" FROM HERE ON OUT IT SHOULD BE DONE
+  call system(printf('xclip -selection clipboard -t %s -o > %s',
+    \ mimetype, dir_with_filename))
+
+  let @* = '![[' . dir_with_filename . ']]'
+  normal! "*p
+  " if we get this far, we pasted an image -> want to automatically break to a
+  " new line.
+  execute "normal! o\<Esc>"
+  write
+
+endfunction
+
 "Project-specific settings
 silent! so .vimlocal
+
 

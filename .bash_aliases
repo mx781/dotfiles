@@ -53,12 +53,15 @@ alias reset-xserver="sudo systemctl restart display-manager"
 
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
-alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate"
+alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate && source .env"
 alias knowledge="cd /home/maksis/hub/knowledge"
 alias experiments="cd /home/maksis/hub/experiments && source venv/bin/activate"
+alias sonora="cd /home/maksis/hub/experiments/sonora && source venv/bin/activate"
 
 ## imbue
 alias imbue="cd /home/maksis/hub/testgrounds/generally_intelligent && source venv/311/bin/activate && source science/secrets/environment_vars/controller_vars.sh && source science/secrets/environment_vars/bashenv_secrets.sh"
 
 # misc
 alias olafa-nets="nmcli -p con up id olafs"
+alias ppp="PYTHONPATH=$(pwd) python"
+alias awake="dual && config-keyb && reset-bt"
