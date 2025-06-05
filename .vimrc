@@ -93,6 +93,7 @@ call plug#begin()
 
     "Other syntax highlighting
     Plug 'Glench/Vim-Jinja2-Syntax'
+    Plug 'rust-lang/rust.vim'
   
     "LSP Support
     Plug 'williamboman/mason.nvim'
@@ -121,7 +122,7 @@ call plug#begin()
     " Plug 'hrsh7th/nvim-cmp'
     Plug 'nvim-tree/nvim-web-devicons' "or Plug 'echasnovski/mini.icons'
     Plug 'HakonHarnes/img-clip.nvim'
-    Plug 'zbirenbaum/copilot.lua'
+    " Plug 'zbirenbaum/copilot.lua'
 
     """Yay, pass source=true if you want to build from source
     Plug 'yetone/avante.nvim', { 'branch': 'main', 'do': 'make' }
@@ -323,6 +324,19 @@ vnoremap <silent> <leader><cr> :call RunSelection()<cr>:call setpos('.', g:saved
 nnoremap <silent> <C-s> <Esc><C-w>lA
 inoremap <silent> <C-s> <Esc><C-w>lA
 tnoremap <silent> <C-s> <C-\><C-n><C-w>h
+
+""Rust: switch, run, switch back
+function! RunInSidePanel()
+    " Save the current file
+    if &modified
+        write
+    endif
+    call feedkeys("\<C-w>l")
+    call feedkeys("iclear\&\&cargo run\<CR>")
+    call feedkeys("\<Esc>\<C-w>h")
+endfunction
+command! RunInSidePanel call RunInSidePanel()
+nnoremap <silent> <leader>rr :call RunInSidePanel()<CR>
 
 
 ""Mini-plugins
