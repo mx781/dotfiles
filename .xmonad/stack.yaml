@@ -29,10 +29,10 @@ resolver: lts-14.17
 #   - auto-update
 #   - wai
 packages:
-- xmobar-git
-- xmonad-git
-- xmonad-contrib-git
-- xmonad-extras-git
+- xmonad
+- xmonad-contrib
+- xmonad-extras
+
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
@@ -45,11 +45,11 @@ packages:
 
 extra-deps:
   - iwlib-0.1.0
+  - c2hs-0.28.8
+  - language-c-0.9.2
+  - alsa-mixer-0.3.0.1
 
 # Override default flag values for local packages and extra-deps
-flags:
-  xmobar:
-    all_extensions: true
 
 # Extra package databases containing global packages
 # extra-package-dbs: []
