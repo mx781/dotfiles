@@ -16,7 +16,7 @@ usermod -aG sudo $username
 passwd -l root # drop root login
 
 apt update
-apt install linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo network-manager locales
+apt install linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
 
 dpkg-reconfigure locales
 passwd
