@@ -14,7 +14,8 @@ install -m 0755 -d /etc/apt/keyrings
 apt install -y xorg xinit
 
 # Prerequisites
-apt install -y build-essential
+apt install -y build-essential systemd-timesyncd
+systemctl enable --now systemd-timesyncd
 
 # Fundamentals
 apt install -y git dmenu
@@ -26,7 +27,7 @@ apt install -y pulseaudio pavucontrol
 apt install -y bluetooth
 
 # Utils
-apt install -y feh xclip maim acpi wget curl bzip2 wmctrl ncdu nnn tmux
+apt install -y feh xclip maim acpi wget curl bzip2 unzip wmctrl ncdu nnn tmux
 
 ## fzf
 mkdir -p /opt/fzf
@@ -43,7 +44,9 @@ apt install -y libxfixes-dev
 mkdir -p /opt/clipmenu
 git clone https://github.com/cdown/clipmenu.git /opt/clipmenu
 make -C /opt/clipmenu install
-systemctl enable --user clipmenud
+# Needs to be started after X, so it's in xsession
+# ref: https://github.com/cdown/clipmenu/issues/141#issuecomment-711019744
+# systemctl enable --user clipmenud
 systemctl start --user clipmenud
 
 ## xsecurelock
@@ -57,7 +60,7 @@ make install
 cd -
 
 # GUI Utils
-apt install -y arandr
+apt install -y arandr pinentry-qt
 
 ## Neovim
 mkdir -p /opt/nvim

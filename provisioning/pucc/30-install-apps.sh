@@ -17,7 +17,8 @@ echo \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
-sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
 
 # Node
 curl -fsSL https://fnm.vercel.app/install | bash
@@ -30,21 +31,11 @@ uv python install 3.12
 
 # Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. $HOME/.cargo/env
 
 # Alacritty
 cargo install alacritty
 sudo ln -s $HOME/.cargo/bin/alacritty /usr/local/bin/alacritty
-
-# Firefox
-wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
-gpg -n -q --import --import-options import-show /etc/apt/keyrings/packages.mozilla.org.asc | awk '/pub/{getline; gsub(/^ +| +$/,""); if($0 == "35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3") print "\nThe key fingerprint matches ("$0").\n"; else print "\nVerification failed: the fingerprint ("$0") does not match the expected one.\n"}'
-echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null
-echo '
-Package: *
-Pin: origin packages.mozilla.org
-Pin-Priority: 1000
-' | sudo tee /etc/apt/preferences.d/mozilla
-sudo apt update && sudo apt install firefox
 
 # Telegram
 wget https://telegram.org/dl/desktop/linux -O /tmp/telegram.tar.xz \
@@ -59,13 +50,6 @@ wget https://appimages.libreitalia.org/LibreOffice-fresh.basic-x86_64.AppImage \
     -O $HOME/.local/bin/LibreOffice.AppImage \
     && chmod +x $HOME/.local/bin/LibreOffice.AppImage
 
-
-# Slack
-wget https://downloads.slack-edge.com/desktop-releases/linux/x64/4.43.51/slack-desktop-4.43.51-amd64.deb \
-    -O /tmp/slack.deb \
-    && sudo dpkg -i /tmp/slack.deb
-sudo apt --fix-broken install -y # not sure how else to easily get all slack deps
-
 # Gopass
 curl https://packages.gopass.pw/repos/gopass/gopass-archive-keyring.gpg | sudo tee /usr/share/keyrings/gopass-archive-keyring.gpg
 cat << EOF | sudo tee /etc/apt/sources.list.d/gopass.sources
@@ -77,5 +61,23 @@ Components: main
 Signed-By: /usr/share/keyrings/gopass-archive-keyring.gpg
 EOF
 sudo apt update
-sudo apt install gopass-archive-keyring gopass
+sudo apt install -y gopass-archive-keyring gopass
 
+# Firefox
+wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+gpg --list-keys
+gpg -n -q --import --import-options import-show /etc/apt/keyrings/packages.mozilla.org.asc | awk '/pub/{getline; gsub(/^ +| +$/,""); if($0 == "35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3") print "\nThe key fingerprint matches ("$0").\n"; else print "\nVerification failed: the fingerprint ("$0") does not match the expected one.\n"}'
+echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null
+echo '
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+' | sudo tee /etc/apt/preferences.d/mozilla
+sudo apt update && sudo apt install firefox
+
+# Slack
+echo "Installing slack... this will probably break - run sudo apt --fix-broken install -y afterwards"
+wget https://downloads.slack-edge.com/desktop-releases/linux/x64/4.43.51/slack-desktop-4.43.51-amd64.deb \
+    -O /tmp/slack.deb \
+    && sudo dpkg -i /tmp/slack.deb
+sudo apt --fix-broken install -y # not sure how else to easily get all slack deps
