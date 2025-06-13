@@ -29,6 +29,12 @@ apt install -y bluetooth
 # Utils
 apt install -y feh xclip maim acpi wget curl bzip2 unzip wmctrl ncdu nnn tmux
 
+## feh config
+xdg-mime default feh.desktop image/png
+xdg-mime default feh.desktop image/jpeg
+xdg-mime default feh.desktop image/jpg
+xdg-mime default feh.desktop image/gif
+
 ## fzf
 mkdir -p /opt/fzf
 git clone --depth 1 https://github.com/junegunn/fzf.git /opt/fzf
