@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ln -sf $(pwd)/.bash_aliases $HOME/.bash_aliases
+ln -sf $(pwd)/.xsession $HOME/.xsession
 ln -sf $(pwd)/scripts $HOME/scripts
 ln -s $(pwd)/.xmonad $HOME/.xmonad
 ln -s $(pwd)/Pictures/bg-mandra.jpg $HOME/Pictures/bg-mandra.jpg

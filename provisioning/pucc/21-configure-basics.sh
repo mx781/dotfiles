@@ -15,7 +15,7 @@ $HOME/hub/dotfiles/setup_symlinks.sh
 ssh-keygen -t ed25519
 echo "Your public SSH key is below:"
 cat $HOME/.ssh/id_ed25519.pub
-read -p "Add it to Github, hit ENTER when ready"
+read -p "Add it to Github, hit ENTER when ready (goto new tty, startx, login, use Brave): "
 
 git clone git@github.com:mx781/knowledge.git $HOME/hub/knowledge
 
