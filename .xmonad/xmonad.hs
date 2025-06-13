@@ -109,7 +109,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   -- , ((winMask, xK_r), spawn "rofi -show ssh")
   -- , ((winMask, xK_f), spawn "rofi -show fb -modi fb:~/linux/rofi-file-browser.sh")
   , ((winMask, xK_q), spawn "killall conky dzen2 trayer && sleep 1" >> (restart "/home/maksis/.xmonad/xmonad-x86_64-linux" True))
-  , ((winMask .|. shiftMask, xK_l), spawn "xscreensaver-command -lock")
+  , ((winMask .|. shiftMask, xK_l), spawn "xsecurelock")
 
 
   , ((0, 0xffc8), lowerVolume 4 >>= alert)
