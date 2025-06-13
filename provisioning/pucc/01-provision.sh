@@ -20,7 +20,7 @@ passwd -l root # drop root login
 sed -i '/^deb / s/main.*/main contrib non-free non-free-firmware/' /etc/apt/sources.list
 
 apt update
-apt install -y linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
+apt install -y linux-image-amd64 grub-efi-amd64 cryptsetup cryptsetup-initramfs initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
 
 dpkg-reconfigure locales
 

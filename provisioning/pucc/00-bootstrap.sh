@@ -21,6 +21,7 @@ cryptsetup open /dev/sda2 cryptroot
 mkfs.ext4 /dev/mapper/cryptroot
 
 mount /dev/mapper/cryptroot /mnt
+mkdir -p /mnt/boot
 mount /dev/sda1 /mnt/boot
 
 debootstrap --arch amd64 stable /mnt http://deb.debian.org/debian
