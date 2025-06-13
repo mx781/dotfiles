@@ -20,9 +20,12 @@ cryptsetup luksFormat /dev/sda2
 cryptsetup open /dev/sda2 cryptroot
 mkfs.ext4 /dev/mapper/cryptroot
 
+mount /dev/mapper/cryptroot /mnt
+mount /dev/sda1 /mnt/boot
+
 debootstrap --arch amd64 stable /mnt http://deb.debian.org/debian
 
-cp -r $(pwd) /mnt/provisioning
+cp -r $(git rev-parse --show-toplevel) /mnt/dotfiles
 mount --types proc /proc /mnt/proc
 mount --rbind /sys /mnt/sys
 mount --rbind /dev /mnt/dev
