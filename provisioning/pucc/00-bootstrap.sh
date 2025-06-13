@@ -1,5 +1,7 @@
 #!/bin/bash
 # Fresh system -> partitioned and formatted
+#
+set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root" >&2

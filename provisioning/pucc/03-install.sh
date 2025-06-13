@@ -1,5 +1,7 @@
 #!/bin/bash
 # Minimal desktop environment -> full-fledged machine ready to roll
+set -euo pipefail
+
 if [ "$(id -u)" -eq 0 ]; then
     echo "This script must NOT be run as root" >&2
     exit 1
