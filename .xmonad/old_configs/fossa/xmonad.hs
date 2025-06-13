@@ -43,9 +43,9 @@ import Data.Monoid
 import qualified XMonad.StackSet as S
 import qualified Data.Map as M
  
-myTerminal = "alacritty"
-colorNormalBorder   = "#A83F02"
-colorFocusedBorder  = "#E35502"
+myTerminal = "sakura"
+colorNormalBorder   = "#647702"
+colorFocusedBorder  = "#b5ef4a"
 
 -- Define the names of all workspaces
 myWorkspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -217,7 +217,7 @@ myManageHook = (composeAll . concat $
 -- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400"
 
 -- dual-ultawide
-myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#E35502"
+myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#101E00'"
 myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '4960' -w '400' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
 myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
