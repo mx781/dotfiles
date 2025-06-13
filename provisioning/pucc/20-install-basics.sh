@@ -73,3 +73,5 @@ apt install -y libx11-dev libxft-dev libxinerama-dev libxrandr-dev libxss-dev \
     haskell-stack
 stack upgrade
 
+# Brave (technically not basics, but needed for configure step)
+curl -fsS https://dl.brave.com/install.sh | sh
