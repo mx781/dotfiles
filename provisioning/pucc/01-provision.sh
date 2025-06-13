@@ -1,5 +1,7 @@
 #!/bin/bash
 # Bare system (chrooted into /mnt) -> bootable debian
+set -euo pipefail
+
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root" >&2
     exit 1
@@ -13,6 +15,9 @@ read -p "Enter the principal user name: " username
 adduser $username
 usermod -aG sudo $username
 passwd -l root # drop root login
+
+# needed for firmware-iwlwifi
+sed -i '/^deb / s/main.*/main contrib non-free non-free-firmware/' /etc/apt/sources.list
 
 apt update
 apt install -y linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
