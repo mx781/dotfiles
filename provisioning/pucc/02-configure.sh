@@ -6,6 +6,7 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 sudo apt update
+sudo install -m 0755 -d /etc/apt/keyrings
 
 # X stuff
 sudo apt install -y xorg xinit
@@ -19,18 +20,39 @@ sudo apt install -y git dmenu
 # Audio
 sudo apt install -y pulseaudio pavucontrol
 
+# Bluetooth
+sudo apt install -y bluetooth
+
 # Utils
-sudo apt install -y feh xclip maim acpi wget curl bzip2 wmctrl
+sudo apt install -y feh xclip maim acpi wget curl bzip2 wmctrl ncdu nnn tmux
 
 ## fzf
-mkdir -p /opt/fzf
-git clone --depth 1 https://github.com/junegunn/fzf.git /opt/fzf
+sudo mkdir -p /opt/fzf
+sudo git clone --depth 1 https://github.com/junegunn/fzf.git /opt/fzf
 /opt/fzf/install
 
 ## ripgrep
 curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep_14.1.1-1_amd64.deb
 sudo dpkg -i ripgrep_14.1.1-1_amd64.deb
 rm ripgrep_14.1.1-1_amd64.deb
+
+## clipmenu
+sudo apt install -y libxfixes-dev
+sudo mkdir -p /opt/clipmenu
+sudo git clone https://github.com/cdown/clipmenu.git /opt/clipmenu
+sudo make -C /opt/clipmenu install
+systemctl enable --user clipmenud
+systemctl start --user clipmenud
+
+## xsecurelock
+sudo apt install -y automake libpam-dev libxcomposite-dev libxmu-dev
+sudo git clone https://github.com/google/xsecurelock.git /opt/xsecurelock
+cd /opt/xsecurelock 
+sudo ./autogen.sh
+sudo ./configure --with-pam-service-name=SERVICE-NAME
+sudo make
+sudo make install
+cd -
 
 # GUI Utils
 sudo apt install -y arandr

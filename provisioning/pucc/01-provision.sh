@@ -1,6 +1,5 @@
 #!/bin/bash
 # Bare system (chrooted into /mnt) -> bootable debian
-
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root" >&2
     exit 1

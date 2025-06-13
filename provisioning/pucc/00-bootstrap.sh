@@ -11,7 +11,7 @@ if [ ! -b /dev/sda1 ] || [ ! -b /dev/sda2 ]; then
     exit 1
 fi
 
-apt install debootstrap cryptsetup cryptsetup-initramfs firmware-iwlwifi --no-install-recommends -y
+apt install debootstrap cryptsetup cryptsetup-initramfs --no-install-recommends -y
 
 mkfs.vfat -F32 /dev/sda1
 cryptsetup luksFormat /dev/sda2
