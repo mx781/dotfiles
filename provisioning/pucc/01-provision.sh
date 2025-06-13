@@ -15,10 +15,9 @@ usermod -aG sudo $username
 passwd -l root # drop root login
 
 apt update
-apt install linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
+apt install -y linux-image-amd64 grub-efi-amd64 cryptsetup initramfs-tools systemd-sysv sudo firmware-iwlwifi network-manager locales
 
 dpkg-reconfigure locales
-passwd
 
 echo "cryptroot UUID=$(blkid -s UUID -o value /dev/sda2) none luks,discard" > /etc/crypttab
 
