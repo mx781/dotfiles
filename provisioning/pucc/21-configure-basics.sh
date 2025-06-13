@@ -25,3 +25,20 @@ sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.
 
 git config --global user.name "mxunknown"
 git config --global user.email "mxunknown@gmail.com"
+
+# Fonts
+fonts_dir="${HOME}/.local/share/fonts"
+if [ ! -d "${fonts_dir}" ]; then
+    echo "mkdir -p $fonts_dir"
+    mkdir -p "${fonts_dir}"
+else
+    echo "Found fonts dir $fonts_dir"
+fi
+
+version=v3.4.0
+curl --fail --location --show-error https://github.com/ryanoasis/nerd-fonts/releases/download/${version}/FiraCode.zip --output ${zip}
+unzip -o -q -d ${fonts_dir} ${zip}
+rm ${zip}
+
+echo "fc-cache -f"
+fc-cache -f
