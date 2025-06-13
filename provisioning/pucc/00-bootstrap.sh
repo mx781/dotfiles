@@ -20,6 +20,7 @@ mkfs.ext4 /dev/mapper/cryptroot
 
 debootstrap --arch amd64 stable /mnt http://deb.debian.org/debian
 
+cp -r $(pwd) /mnt/provisioning
 mount --types proc /proc /mnt/proc
 mount --rbind /sys /mnt/sys
 mount --rbind /dev /mnt/dev
