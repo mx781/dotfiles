@@ -156,14 +156,14 @@ myEventHook = floatClickFocusHandler
 myLogHook :: Handle -> X ()
 myLogHook h = dynamicLogWithPP $ defaultPP
     {
-        ppCurrent           =   dzenColor "#98cc0a" "#101e00" . pad
+        ppCurrent           =   dzenColor "#e35502" "#101e00" . pad
       , ppVisible           =   dzenColor "white" "#101e00" . pad
       , ppHidden            =   dzenColor "white" "#101e00" . pad
       , ppHiddenNoWindows   =   dzenColor "#7b7b7b" "#101e00" . pad
       , ppUrgent            =   dzenColor "#ff0000" "#101e00" . pad
       , ppWsSep             =   " "
       , ppSep               =   "  |  "
-      , ppLayout            =   dzenColor "#98cc0a" "#101e00" .
+      , ppLayout            =   dzenColor "#e35502" "#101e00" .
                                 (\x -> case (x) of
                                     "Spacing ResizableTall"             ->      "^i(" ++ myBitmapsDir ++ "/tall.xbm)"
                                     "Mirror Spacing ResizableTall"      ->      "^i(" ++ myBitmapsDir ++ "/mtall.xbm)"
@@ -217,9 +217,14 @@ myManageHook = (composeAll . concat $
 -- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400"
 
 -- dual-ultawide
-myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#E35502"
-myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '4960' -w '400' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
-myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
+-- myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#E35502"
+-- myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '4960' -w '400' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
+-- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
+
+-- dual-ultawide (gravity)
+myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3190' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#101E00'"
+myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '5210' -w '550' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
+myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 550 --monitor 1"
 
 myStartup = do
   spawn myTrayer

@@ -36,7 +36,7 @@ alias rescan="nmcli device wifi rescan"
 
 # reset things
 alias reset-sound="pulseaudio -k && sudo alsa force-reload"
-alias reset-bt="rfkill block bluetooth && rfkill unblock bluetooth"
+alias reset-bt="sudo rfkill block bluetooth && sudo rfkill unblock bluetooth"
 alias reset-gpu="sudo rmmod nvidia_uvm && sudo modprobe nvidia_uvm"
 alias reset-wine="wineserver -k"
 alias reset-bg="feh --bg-fill $HOME/Pictures/bg-mandra.jpg"

@@ -45,9 +45,9 @@ else
 fi
 
 version=v3.4.0
-curl --fail --location --show-error https://github.com/ryanoasis/nerd-fonts/releases/download/${version}/FiraCode.zip --output ${zip}
-unzip -o -q -d ${fonts_dir} ${zip}
-rm ${zip}
+curl --fail --location --show-error https://github.com/ryanoasis/nerd-fonts/releases/download/${version}/FiraCode.zip --output FiraCode.zip
+unzip -o -q -d ${fonts_dir} FiraCode.zip
+rm FiraCode.zip
 
 echo "fc-cache -f"
 fc-cache -f
