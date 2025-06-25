@@ -11,6 +11,11 @@ xkb_symbols "lv_pok3r_p1" {
     include "level5(ralt_switch)"
 
     key.type[Group1] = "EIGHT_LEVEL";
+
+    key <ESC> {
+        type= "EIGHT_LEVEL",
+        symbols[Group1]= [ Escape, Escape, NoSymbol, NoSymbol, grave, asciitilde, NoSymbol, NoSymbol ]
+    };
     
     key <AC07> { [
         NoSymbol, NoSymbol, NoSymbol, NoSymbol,
