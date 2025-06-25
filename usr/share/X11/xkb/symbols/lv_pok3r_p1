@@ -14,7 +14,7 @@ xkb_symbols "lv_pok3r_p1" {
 
     key <ESC> {
         type= "EIGHT_LEVEL",
-        symbols[Group1]= [ Escape, Escape, NoSymbol, NoSymbol, grave, asciitilde, NoSymbol, NoSymbol ]
+        symbols[Group1]= [ Escape, asciitilde, NoSymbol, NoSymbol, grave, asciitilde, NoSymbol, NoSymbol ]
     };
     
     key <AC07> { [
