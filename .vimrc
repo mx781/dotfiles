@@ -343,6 +343,9 @@ nnoremap <silent> <leader>rr :call RunInSidePanel()<CR>
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
 :command! -range Decrypt :'<,'>!gpg -dq
 
+nnoremap <leader>rf :!ruff format %<CR>:e!<CR>
+nnoremap <leader>rl :!ruff check --fix %<CR>
+
 hi default BookmarkCol ctermfg=blue ctermbg=lightblue cterm=bold guifg=DarkBlue guibg=#d0d0ff gui=bold
 sign define MyBookmark linehl=BookmarkCol
 nnoremap <leader>ba :exe 'sign place ' . line('.') . ' name=MyBookmark line=' . line(".") . ' buffer='.winbufnr(0)<CR>
