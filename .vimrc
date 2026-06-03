@@ -101,6 +101,8 @@ call plug#begin()
     Plug 'neovim/nvim-lspconfig'
 
     " Plug 'dense-analysis/ale'
+    "Debugging
+    Plug 'mfussenegger/nvim-dap'
 
     "Autocompletion
     Plug 'hrsh7th/nvim-cmp'
@@ -185,9 +187,9 @@ endif
 let g:highlightedyank_highlight_duration = 350
 
 ""Commentary
-"""Comment out line(s) (C-_ maps ctrl+slash)
-nmap <C-_> gc$
-vmap <C-_> gc$
+"""Comment out line(s)
+nmap <C-/> gc$
+vmap <C-/> gc$
 
 ""Obsidian
 """Allow for markdown preview (checked boxes)
@@ -300,22 +302,35 @@ function! FileNotebook()
   call OpenFileNotebook()
 endfunction
 
+function! TmuxWorkspace()
+    let l:session = GetFileNotebookSession()
+    execute 'vsplit'
+    execute 'wincmd w'
+    execute 'terminal'
+    execute 'startinsert'
+    call feedkeys("tmux a\<CR>\<Esc>\<C-w>w", 't')
+endfunction
+
+
+command! MakeFileNotebook :call MakeFileNotebook()
+command! OpenFileNotebook :call OpenFileNotebook()
+command! FileNotebook :call FileNotebook()
+command! TmuxWorkspace :call TmuxWorkspace()
+
 function! RunSelection() range
   execute a:firstline . ',' . a:lastline . 'y +'
 
   "Remove comment marker before magics (so python file can be valid syntax)
   let l:lines = split(@+, "\n")
   let l:modified_lines = map(l:lines, 'substitute(v:val, "^# %", "%", "")')
+  let l:modified_lines = map(l:lines, 'substitute(v:val, "^# %", "%", "")')
+  let l:modified_lines = map(l:modified_lines, 'substitute(v:val, "^# !", "!", "")')
   let @+ = join(l:modified_lines, "\n")
 
   call feedkeys("\<C-w>l")
   call feedkeys("\"+pA\<CR>\<CR>")
   call feedkeys("\<Esc>\<C-w>h")
 endfunction
-
-command! MakeFileNotebook :call MakeFileNotebook()
-command! OpenFileNotebook :call OpenFileNotebook()
-command! FileNotebook :call FileNotebook()
 
 nnoremap <silent> <leader><cr> :call Cell()<cr>:call RunSelection()<cr>:call setpos('.', g:saved_cursor)<cr>
 nnoremap <silent> <leader><s-cr> :call Cell()<cr>:call RunSelection()<cr>:call search(g:cell, 'W')<cr>
@@ -345,6 +360,7 @@ nnoremap <silent> <leader>rr :call RunInSidePanel()<CR>
 
 nnoremap <leader>rf :!ruff format %<CR>:e!<CR>
 nnoremap <leader>rl :!ruff check --fix %<CR>
+command! -range Ruff :!ruff format % --range <line1>-<line2>
 
 hi default BookmarkCol ctermfg=blue ctermbg=lightblue cterm=bold guifg=DarkBlue guibg=#d0d0ff gui=bold
 sign define MyBookmark linehl=BookmarkCol
@@ -362,6 +378,15 @@ fun! NFH_png(filename)
   echo var_to_call
   " echo var_to_call
 endfun
+
+fun! NFH_note_pngs()
+  let note = expand('%:p')
+  let pattern = '!\[\[([^]|#]+)(?:#[^]|]*)?(?:\|[^]]*)?\]\]'
+  let cmd = 'rg -o --replace ' . shellescape('$1') . ' ' . shellescape(pattern) . ' ' . shellescape(note) . " | xargs -r -d '\\n' feh -B '#999999' -A ';realpath \"%F\" | xclip -selection clipboard' &"
+  call system(cmd)
+endfun
+command! NFHNotePngs call NFH_note_pngs()
+nnoremap <silent> gX :call NFH_note_pngs()<CR>
 
 let g:netrw_browsex_viewer = '-'
 
@@ -421,7 +446,6 @@ function! NotemasterPaste() abort
 
 endfunction
 
+
 "Project-specific settings
 silent! so .vimlocal
-
-

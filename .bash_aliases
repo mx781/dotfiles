@@ -22,7 +22,8 @@ alias config-startup="gnome-session-properties"
 
 # screen
 alias single="$HOME/.screenlayout/single.sh"
-alias dual="$HOME/.screenlayout/dual-ultrawide.sh"
+alias docked="$HOME/.screenlayout/docked.sh"
+alias home="$HOME/.screenlayout/home.sh"
 
 alias lockscreen="gnome-screensaver-command -l"
 alias screensaver-on="xset s off -dpms"

@@ -16,6 +16,19 @@ xkb_symbols "lv_pok3r_p1" {
         type= "EIGHT_LEVEL",
         symbols[Group1]= [ Escape, asciitilde, NoSymbol, NoSymbol, grave, asciitilde, NoSymbol, NoSymbol ]
     };
+
+    key <AE01> { [ 1, exclam, NoSymbol, NoSymbol, F1 ] };
+    key <AE02> { [ 2, at,     NoSymbol, NoSymbol, F2 ] };
+    key <AE03> { [ 3, numbersign, NoSymbol, NoSymbol, F3 ] };
+    key <AE04> { [ 4, dollar,     NoSymbol, NoSymbol, F4 ] };
+    key <AE05> { [ 5, percent,    NoSymbol, NoSymbol, F5 ] };
+    key <AE06> { [ 6, asciicircum,NoSymbol, NoSymbol, F6 ] };
+    key <AE07> { [ 7, ampersand,  NoSymbol, NoSymbol, F7 ] };
+    key <AE08> { [ 8, asterisk,   NoSymbol, NoSymbol, F8 ] };
+    key <AE09> { [ 9, parenleft,  NoSymbol, NoSymbol, F9 ] };
+    key <AE10> { [ 0, parenright, NoSymbol, NoSymbol, F10 ] };
+    key <AE11> { [ minus, underscore, NoSymbol, NoSymbol, F11 ] };
+    key <AE12> { [ equal, plus,      NoSymbol, NoSymbol, F12 ] };
     
     key <AC07> { [
         NoSymbol, NoSymbol, NoSymbol, NoSymbol,

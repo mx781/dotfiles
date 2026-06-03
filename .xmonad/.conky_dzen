@@ -6,6 +6,8 @@ conky.config = {
     update_interval = 1,
 };
 
+
+--conky leaks memory with these icons - eitehr gotta super+q every once in a while, or move away from it, or use text
  
 conky.text = [[
 ^fg(\#E35502) ^i(/home/maksis/.xmonad/dzen2/cpu.xbm) ^fg(\#FFFFFF)${cpu}%\
