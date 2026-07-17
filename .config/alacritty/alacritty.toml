@@ -1,5 +1,2 @@
-[general]
-import = ["~/.config/alacritty/theme.toml"]
-
 [font]
 normal = { family = "Fira Code Nerd Font", style = "Regular" }

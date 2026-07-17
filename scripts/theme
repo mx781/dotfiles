@@ -83,34 +83,6 @@ themeBatteryWarning = "{colors['battery_warning']}"
         # this function as `conky_theme_color("status_accent")`.
         + ["}", "function conky_theme_color(name) return colors[name] end", ""]
     ))
-    write(ROOT / ".config" / "alacritty" / "theme.toml", f'''[colors.primary]
-background = "{colors['background']}"
-foreground = "{colors['foreground']}"
-
-[colors.normal]
-black = "{colors['background']}"
-red = "{colors['urgent']}"
-green = "{colors['border_focused']}"
-yellow = "{colors['battery_warning']}"
-blue = "{colors['status_accent']}"
-magenta = "{colors['accent']}"
-cyan = "{colors['status_accent']}"
-white = "{colors['status_foreground']}"
-
-[colors.bright]
-black = "{colors['muted']}"
-red = "{colors['urgent']}"
-green = "{colors['border_focused']}"
-yellow = "{colors['battery_warning']}"
-blue = "{colors['status_accent']}"
-magenta = "{colors['accent']}"
-cyan = "{colors['foreground']}"
-white = "{colors['foreground']}"
-''')
-    # Alacritty watches its main configuration file, but does not reliably
-    # notice writes to an imported file.  Touching the stable import parent
-    # causes running terminals to reload this newly generated palette.
-    os.utime(ROOT / ".config" / "alacritty" / "alacritty.toml", None)
     def ansi(hex_color: str) -> str:
         red, green, blue = (int(hex_color[index:index + 2], 16) for index in (1, 3, 5))
         escape = chr(92)

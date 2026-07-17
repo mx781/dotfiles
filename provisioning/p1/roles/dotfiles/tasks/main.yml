@@ -36,7 +36,6 @@
     - { src: "{{ dotfiles_repo }}/scripts", dest: "{{ target_home }}/scripts" }
     - { src: "{{ dotfiles_repo }}/.xmonad", dest: "{{ target_home }}/.xmonad" }
     - { src: "{{ dotfiles_repo }}/.config/alacritty/alacritty.toml", dest: "{{ target_home }}/.config/alacritty/alacritty.toml" }
-    - { src: "{{ dotfiles_repo }}/.config/alacritty/theme.toml", dest: "{{ target_home }}/.config/alacritty/theme.toml" }
     - { src: "{{ dotfiles_repo }}/.config/shell/theme-prompt.sh", dest: "{{ target_home }}/.config/shell/theme-prompt.sh" }
     - { src: "{{ dotfiles_repo }}/.config/nvim/init.lua", dest: "{{ target_home }}/.config/nvim/init.lua" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-mandra.jpg", dest: "{{ target_home }}/Pictures/bg-mandra.jpg" }
@@ -56,6 +55,11 @@
   environment:
     HOME: "{{ target_home }}"
   changed_when: true
+
+- name: Remove obsolete themed Alacritty import
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/alacritty/theme.toml"
+    state: absent
 
 - name: Install Neovim plugins declared in the dotfiles
   ansible.builtin.command: >-
