@@ -1,4 +1,5 @@
 [colors]
+wallpaper = "bg-rust.jpg"
 background = "#1e1000"
 foreground = "#ffffff"
 accent = "#e35502"

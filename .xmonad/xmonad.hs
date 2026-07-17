@@ -92,9 +92,9 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , ((winMask .|. altMask, xK_comma), sendMessage MirrorShrink)
   , ((winMask .|. altMask, xK_period ), sendMessage MirrorExpand)
   , ((winMask .|. altMask, xK_BackSpace), windows $ S.shift "dump")
-  , ((winMask, xK_o), spawn $ "dmenu_run -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
-  , ((winMask, xK_Return), spawn $ "dmenu_run -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
-  , ((winMask, xK_v), spawn $ "clipmenu -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
+  , ((winMask, xK_o), spawn $ "dmenu_run -i " ++ myMenuColors ++ " -fn 'Fira Code'")
+  , ((winMask, xK_Return), spawn $ "dmenu_run -i " ++ myMenuColors ++ " -fn 'Fira Code'")
+  , ((winMask, xK_v), spawn $ "clipmenu -i " ++ myMenuColors ++ " -fn 'Fira Code'")
   , ((0, xK_Print), spawn "scrot -q 95 '%Y-%m-%d_$wx$h.jpg' -e 'mv $f ~/Pictures/'")
   , ((altMask, xK_Print), spawn "maim -s | tee \"/home/maksis/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png\" | xclip -selection clipboard -t image/png -i")
   -- , ((winMask .|. altMask, xK_p), spawn "scrot -s -q 95 ~/Pictures/%Y-%m-%d_%H-%M-%S.jpg -e 'xclip -selection clipboard -t image/jpg -i $f'")
@@ -227,6 +227,7 @@ myManageHook = (composeAll . concat $
 -- myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '5210' -w '550' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
 -- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 550 --monitor 1"
 myDzenGeometry = "/home/maksis/scripts/dzen-geometry"
+myMenuColors = "-nb '" ++ themeBackground ++ "' -nf '" ++ themeForeground ++ "' -sb '" ++ themeAccent ++ "' -sf '" ++ themeBackground ++ "'"
 myXmonadBar = "dzen2 -dock $(" ++ myDzenGeometry ++ " workspace) -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
 myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock $(" ++ myDzenGeometry ++ " status) -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "'"
 myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
@@ -239,7 +240,7 @@ myBitmapsDir = "/home/maksis/.xmonad/dzen2"
 
 -- Run XMonad with the defaults
 main = do
-    spawn "feh --bg-fill ~/Pictures/bg-mandra.jpg"
+    spawn $ "feh --bg-fill ~/Pictures/" ++ themeWallpaper
     dzenLeftBar <- spawnPipe myXmonadBar
     dzenRightBar <- spawnPipe myStatusBar
     xmonad $ ewmh desktopConfig {
