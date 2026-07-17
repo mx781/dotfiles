@@ -53,7 +53,10 @@ themeBatteryWarning = "{colors['battery_warning']}"
     write(ROOT / ".xmonad" / "theme-conky.lua", "\n".join(
         ["local colors = {"]
         + [f"  {name} = '{value}'," for name, value in colors.items()]
-        + ["}", "function theme_color(name) return colors[name] end", ""]
+        # Conky exposes Lua functions to ${lua ...} only when their names begin
+        # with `conky_`; `${lua theme_color status_accent}` consequently calls
+        # this function as `conky_theme_color("status_accent")`.
+        + ["}", "function conky_theme_color(name) return colors[name] end", ""]
     ))
     write(ROOT / ".config" / "alacritty" / "theme.toml", f'''[colors.primary]
 background = "{colors['background']}"
