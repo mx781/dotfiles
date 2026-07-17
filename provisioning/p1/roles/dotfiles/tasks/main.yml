@@ -41,6 +41,7 @@
     - { src: "{{ dotfiles_repo }}/Pictures/bg-mandra.jpg", dest: "{{ target_home }}/Pictures/bg-mandra.jpg" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-rust.jpg", dest: "{{ target_home }}/Pictures/bg-rust.jpg" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-kristaps-ungurs.jpg", dest: "{{ target_home }}/Pictures/bg-kristaps-ungurs.jpg" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-karina-skrypnik.jpg", dest: "{{ target_home }}/Pictures/bg-karina-skrypnik.jpg" }
 
 - name: Install custom keyboard layout
   ansible.builtin.file:
