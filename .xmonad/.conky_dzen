@@ -1,26 +1,9 @@
 conky.config = {
     lua_load = '/home/maksis/.xmonad/conky_functions.lua',
-    lua_load = '/home/maksis/.xmonad/theme-conky.lua',
     background = true,
     out_to_console = true,
     out_to_x = false,
     update_interval = 1,
 };
 
---conky leaks memory with these icons - eitehr gotta super+q every once in a while, or move away from it, or use text
- 
-conky.text = [[
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/cpu.xbm) ^fg(${lua theme_color foreground})${cpu}%\\
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/mem.xbm) ^fg(${lua theme_color foreground})${memperc}%\\
-^fg(${lua theme_color status_accent}) ${if_existing /proc/net/route wlan0} ${endif}\\
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/bat_full_01.xbm) ^fg(${lua theme_color status_foreground})${battery_percent}%\\
-^fg(${lua theme_color battery_urgent}) ${if_match ${exec acpi -b | grep -o Discharging | wc -l} == 1} (DISCHARING) ${endif}\\
-${if_match ${battery_percent} < 25}\\
-${if_match ${lua conky_binary_oscillator} == 0} ^fg(${lua theme_color battery_urgent})LOW!${endif}\\
-${if_match ${lua conky_binary_oscillator} == 1} ^fg(${lua theme_color battery_warning})LOW!${endif}\\
-${endif}\\
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/temp.xbm) ^fg(${lua theme_color status_foreground})${acpitemp}°C\\
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/phones.xbm) ^fg(${lua theme_color status_foreground})${exec amixer -c 1 -M -D pulse get Master | grep -oP "[0-9]+%" | head -n1}\\
-^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/clock.xbm)\\
-^fg(${lua theme_color status_foreground}) ${time %d.%m.%Y} ^fg(${lua theme_color status_accent}) ${time %R}
-]];
+conky.text = [[^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/cpu.xbm) ^fg(${lua theme_color foreground})${cpu}% ^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/mem.xbm) ^fg(${lua theme_color foreground})${memperc}% ^fg(${lua theme_color status_accent}) ${if_existing /proc/net/route wlan0} ${endif} ^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/bat_full_01.xbm) ^fg(${lua theme_color status_foreground})${battery_percent}% ^fg(${lua theme_color battery_urgent}) ${if_match ${exec acpi -b | grep -o Discharging | wc -l} == 1} (DISCHARGING) ${endif}${if_match ${battery_percent} < 25}${if_match ${lua conky_binary_oscillator} == 0} ^fg(${lua theme_color battery_urgent})LOW!${endif}${if_match ${lua conky_binary_oscillator} == 1} ^fg(${lua theme_color battery_warning})LOW!${endif}${endif} ^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/temp.xbm) ^fg(${lua theme_color status_foreground})${acpitemp}°C ^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/phones.xbm) ^fg(${lua theme_color status_foreground})${exec amixer -c 1 -M -D pulse get Master | grep -oP "[0-9]+%" | head -n1} ^fg(${lua theme_color status_accent}) ^i(/home/maksis/.xmonad/dzen2/clock.xbm) ^fg(${lua theme_color status_foreground}) ${time %d.%m.%Y} ^fg(${lua theme_color status_accent}) ${time %R}]];

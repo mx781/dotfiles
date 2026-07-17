@@ -136,17 +136,22 @@ export NVM_DIR="$HOME/.nvm"
 # export GOOGLE_APPLICATION_CREDENTIALS="/home/maksis/secrets/atrocity-management-f137aa5ac8f2.json"
 # export TF_VAR_terraform_state_encryption_key="$(cat /home/maksis/secrets/tfstate_secret.key)"
 
-export PATH="$(yarn global bin):$PATH"
+if command -v yarn >/dev/null 2>&1; then
+    export PATH="$(yarn global bin):$PATH"
+fi
 
-source <(kubectl completion bash)
+if command -v kubectl >/dev/null 2>&1; then
+    source <(kubectl completion bash)
+fi
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/maksis/.mujoco/mujoco210/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
-command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
+if command -v pyenv >/dev/null 2>&1; then
+    eval "$(pyenv init -)"
+fi
 
 set -o vi
 

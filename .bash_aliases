@@ -43,6 +43,12 @@ alias reset-wine="wineserver -k"
 alias reset-bg="feh --bg-fill $HOME/Pictures/bg-mandra.jpg"
 alias reset-xserver="sudo systemctl restart display-manager"
 
+
+## brightness
+brightness() {
+    echo $1 | sudo tee /sys/class/backlight/intel_backlight/brightness
+}
+
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
 alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate && source .env"
