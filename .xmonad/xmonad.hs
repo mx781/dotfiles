@@ -226,8 +226,9 @@ myManageHook = (composeAll . concat $
 -- myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3190' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#101E00'"
 -- myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '5210' -w '550' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
 -- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 550 --monitor 1"
-myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
-myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '4960' -w '400' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "' -y '0'"
+myDzenGeometry = "/home/maksis/scripts/dzen-geometry"
+myXmonadBar = "dzen2 -dock $(" ++ myDzenGeometry ++ " workspace) -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
+myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock $(" ++ myDzenGeometry ++ " status) -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "'"
 myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
 myStartup = do

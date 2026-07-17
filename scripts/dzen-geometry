@@ -1,0 +1,45 @@
+#!/bin/sh
+# Print dzen2 geometry for either the workspace or status portion of the
+# primary active XRandR monitor.  This avoids baking a particular arandr layout
+# into XMonad.
+set -eu
+
+section=${1:-workspace}
+status_width=${DZEN_STATUS_WIDTH:-400}
+bar_height=${DZEN_BAR_HEIGHT:-18}
+
+monitor_geometry=$(xrandr --listactivemonitors 2>/dev/null | awk '
+  /^[[:space:]]*[0-9]+:/ && first == "" { first = $3 }
+  /^[[:space:]]*[0-9]+:/ && $2 ~ /\*/ { print $3; found = 1; exit }
+  END { if (!found && first != "") print first }
+')
+
+# XRandR's monitor form is WIDTH/mmxHEIGHT/mm+X+Y.
+dimensions=${monitor_geometry%%+*}
+position=${monitor_geometry#*+}
+width=${dimensions%%/*}
+height_with_mm=${dimensions#*x}
+height=${height_with_mm%%/*}
+x=${position%%+*}
+y=${position#*+}
+
+case "$section" in
+  workspace)
+    workspace_width=$((width - status_width))
+    if [ "$workspace_width" -lt 1 ]; then
+      workspace_width=1
+    fi
+    printf '%s\n' "-x $x -y $y -w $workspace_width -h $bar_height"
+    ;;
+  status)
+    if [ "$status_width" -gt "$width" ]; then
+      status_width=$width
+    fi
+    status_x=$((x + width - status_width))
+    printf '%s\n' "-x $status_x -y $y -w $status_width -h $bar_height"
+    ;;
+  *)
+    printf '%s\n' "Usage: dzen-geometry [workspace|status]" >&2
+    exit 2
+    ;;
+esac
