@@ -2,3 +2,4 @@
 .config/shell/theme-prompt.sh
 .xmonad/Theme.hs
 .xmonad/theme-conky.lua
+themes/selected.toml

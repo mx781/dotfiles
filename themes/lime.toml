@@ -1,7 +1,7 @@
 [colors]
 background = "#101e00"
 foreground = "#ffffff"
-accent = "#e35502"
+accent = "#98cc0a"
 status_accent = "#98cc0a"
 muted = "#7b7b7b"
 border_normal = "#647702"

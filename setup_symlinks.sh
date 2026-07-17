@@ -12,6 +12,7 @@ ln -s $(pwd)/.xmonad $HOME/.xmonad
 mkdir -p $HOME/Pictures
 ln -s $(pwd)/Pictures/bg-mandra.jpg $HOME/Pictures/bg-mandra.jpg
 ln -s $(pwd)/Pictures/bg-rust.jpg $HOME/Pictures/bg-rust.jpg
+ln -s $(pwd)/Pictures/bg-kristaps-ungurs.jpg $HOME/Pictures/bg-kristaps-ungurs.jpg
 
 sudo mkdir -p /usr/share/X11/xkb/symbols
 sudo ln -s $(pwd)/usr/share/X11/xkb/symbols/lv_pok3r_p1 /usr/share/X11/xkb/symbols/lv_pok3r_p1

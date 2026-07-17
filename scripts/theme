@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Generate application-specific theme adapters from themes/current.toml."""
+"""Generate application-specific theme adapters from the selected palette."""
 from pathlib import Path
 import sys
 import tomllib
 
 
 ROOT = Path(__file__).resolve().parent.parent
-THEME = ROOT / "themes" / "current.toml"
+DEFAULT_THEME = ROOT / "themes" / "current.toml"
+SELECTED_THEME = ROOT / "themes" / "selected.toml"
 
 
 def write(path: Path, content: str) -> None:
@@ -19,12 +20,16 @@ def main() -> None:
         selected = ROOT / "themes" / f"{sys.argv[2]}.toml"
         if not selected.is_file():
             raise SystemExit(f"Unknown theme: {sys.argv[2]}")
-        if THEME.exists() or THEME.is_symlink():
-            THEME.unlink()
-        THEME.symlink_to(selected.name)
+        if SELECTED_THEME.exists() or SELECTED_THEME.is_symlink():
+            SELECTED_THEME.unlink()
+        SELECTED_THEME.symlink_to(selected.name)
+    elif len(sys.argv) == 2 and sys.argv[1] == "reset":
+        if SELECTED_THEME.exists() or SELECTED_THEME.is_symlink():
+            SELECTED_THEME.unlink()
     elif len(sys.argv) != 2 or sys.argv[1] != "apply":
-        raise SystemExit("Usage: theme apply | theme use NAME")
-    colors = tomllib.loads(THEME.read_text())["colors"]
+        raise SystemExit("Usage: theme apply | theme use NAME | theme reset")
+    theme = SELECTED_THEME if SELECTED_THEME.is_file() else DEFAULT_THEME
+    colors = tomllib.loads(theme.read_text())["colors"]
     required = {
         "background", "foreground", "accent", "status_accent", "muted",
         "border_normal", "border_focused", "urgent", "status_foreground",
