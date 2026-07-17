@@ -1,18 +1,19 @@
-vim.cmd([[
-set runtimepath^=~/.vim runtimepath+=~/.vim/after
-let &packpath = &runtimepath
-source ~/.vimrc
-]])
+vim.cmd('source ~/.vimrc')
 
-require'nvim-treesitter.configs'.setup {
-  ensure_installed = { "c", "lua", "vim", "vimdoc", "query", "python", "bash" },
-  sync_install = false,
-  auto_install = true,
-  highlight = {
-    enable = true,
-    additional_vim_regex_highlighting = false,
-  },
+local plugged = vim.fn.stdpath('data') .. '/plugged'
+for _, plugin in ipairs(vim.fn.readdir(plugged)) do
+  vim.opt.runtimepath:append(plugged .. '/' .. plugin)
+end
+
+local treesitter = require('nvim-treesitter')
+treesitter.setup {
+  install_dir = vim.fn.stdpath('data') .. '/site',
 }
+treesitter.install { 'c', 'lua', 'vim', 'vimdoc', 'query', 'python', 'bash' }
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'c', 'lua', 'vim', 'vimdoc', 'query', 'python', 'bash' },
+  callback = function() vim.treesitter.start() end,
+})
 
 require('mason').setup({})
 require('mason-lspconfig').setup({
@@ -83,26 +84,22 @@ end, {})
 
 require("fzf-lua").setup({})
 
-require('leap').create_default_mappings()
+require('leap').add_default_mappings()
 require('leap').opts.special_keys.prev_target = '<bs>'
 require('leap').opts.special_keys.prev_group = '<bs>'
 -- require('leap.user').set_repeat_keys('<cr>', '<bs>')
 
-require("obsidian").setup({
-  workspaces = {
-    {
-      name = "knowledge",
-      path = "~/hub/knowledge",
+if vim.fn.isdirectory(vim.fn.expand('~/hub/knowledge')) == 1 then
+  require("obsidian").setup({
+    workspaces = {
+      { name = "knowledge", path = "~/hub/knowledge" },
+      { name = "work", path = "~/hub/maxtor/vault" },
     },
-    {
-      name = "work",
-      path = "~/hub/maxtor/vault",
-    },
-  },
-  follow_img_func = function(img)
-    vim.fn.jobstart({"xdg-open", url})  -- linux
-  end
-})
+    follow_img_func = function(img)
+      vim.fn.jobstart({"xdg-open", img})
+    end
+  })
+end
 
 
 require('avante').setup({

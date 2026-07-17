@@ -1,0 +1,68 @@
+---
+- name: Install XMonad build dependencies
+  ansible.builtin.apt:
+    name:
+      - libxfixes-dev
+      - dzen2
+      - haskell-stack
+      - libasound2-dev
+      - libx11-dev
+      - libxft-dev
+      - libxinerama-dev
+      - libxrandr-dev
+      - libxss-dev
+      - libtinfo-dev
+      - trayer
+      - xmonad
+      - xsel
+    state: present
+    update_cache: true
+
+- name: Install Clipnotify from its pinned upstream revision
+  ansible.builtin.git:
+    repo: https://github.com/cdown/clipnotify.git
+    dest: /opt/clipnotify
+    version: 1.0.2
+
+- name: Build and install Clipnotify
+  ansible.builtin.command:
+    cmd: make
+    chdir: /opt/clipnotify
+    creates: /opt/clipnotify/clipnotify
+
+- name: Install Clipnotify executable
+  ansible.builtin.copy:
+    src: /opt/clipnotify/clipnotify
+    dest: /usr/local/bin/clipnotify
+    remote_src: true
+    mode: '0755'
+
+- name: Install Clipmenu from its pinned upstream revision
+  ansible.builtin.git:
+    repo: https://github.com/cdown/clipmenu.git
+    dest: /opt/clipmenu
+    version: 6.2.0
+
+- name: Build and install Clipmenu
+  ansible.builtin.command:
+    cmd: make install
+    chdir: /opt/clipmenu
+  changed_when: true
+
+- name: Build the XMonad project from its pinned Stack dependency graph
+  ansible.builtin.command:
+    cmd: stack build
+    chdir: "{{ target_home }}/.xmonad"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Compile the XMonad configuration with the repository build script
+  ansible.builtin.command:
+    cmd: "{{ target_home }}/.xmonad/build {{ target_home }}/.xmonad/xmonad-x86_64-linux"
+    chdir: "{{ target_home }}/.xmonad"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true

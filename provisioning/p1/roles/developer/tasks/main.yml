@@ -1,0 +1,113 @@
+---
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Install Docker signing key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+
+- name: Configure Docker APT repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.sources
+    mode: '0644'
+    content: |
+      Types: deb
+      URIs: https://download.docker.com/linux/debian
+      Suites: trixie
+      Components: stable
+      Architectures: {{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+      Signed-By: /etc/apt/keyrings/docker.asc
+
+- name: Install Docker Engine and plugins
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Allow the target user to use Docker
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    groups: docker
+    append: true
+
+- name: Install fnm
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+  args:
+    creates: "{{ target_home }}/.local/share/fnm/fnm"
+    executable: /bin/bash
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+
+- name: Install Node.js 24.2.0 with fnm
+  ansible.builtin.command: "{{ target_home }}/.local/share/fnm/fnm install 24.2.0"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Expose fnm Node.js tools to desktop applications
+  ansible.builtin.file:
+    src: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+    force: true
+  loop:
+    - node
+    - npm
+    - npx
+    - corepack
+
+- name: Install the Tree-sitter command-line tool
+  ansible.builtin.command: /usr/local/bin/npm install --global tree-sitter-cli
+  args:
+    creates: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/tree-sitter"
+  changed_when: true
+
+- name: Expose the Tree-sitter command-line tool to desktop applications
+  ansible.builtin.file:
+    src: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/tree-sitter"
+    dest: /usr/local/bin/tree-sitter
+    state: link
+    force: true
+
+- name: Install uv
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ target_home }}/.local/bin/uv"
+    executable: /bin/bash
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+
+- name: Install Python 3.12 with uv
+  ansible.builtin.command: "{{ target_home }}/.local/bin/uv python install 3.12"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Install rustup
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  args:
+    creates: "{{ target_home }}/.cargo/bin/rustup"
+    executable: /bin/bash
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"

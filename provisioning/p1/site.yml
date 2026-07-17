@@ -1,0 +1,55 @@
+---
+- name: Provision a Debian 13 workstation
+  hosts: workstation
+  gather_facts: true
+  become: true
+  vars:
+    target_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
+    dotfiles_repo: "{{ lookup('env', 'HOME') }}/hub/dotfiles"
+  pre_tasks:
+    - name: Require Debian 13
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Debian'
+          - ansible_distribution_release == 'trixie'
+        fail_msg: P1 currently supports Debian 13 (trixie) only.
+      tags: [always]
+
+    - name: Require an existing target user
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ target_user }}"
+      tags: [always]
+
+    - name: Get target user home directory
+      ansible.builtin.set_fact:
+        target_home: "{{ getent_passwd[target_user][4] }}"
+      tags: [always]
+
+    - name: Require a dotfiles checkout
+      ansible.builtin.stat:
+        path: "{{ dotfiles_repo }}/.git"
+      register: dotfiles_git
+      tags: [always]
+
+    - name: Stop if dotfiles checkout is missing
+      ansible.builtin.assert:
+        that: dotfiles_git.stat.exists
+        fail_msg: "dotfiles_repo is not a Git checkout: {{ dotfiles_repo }}"
+      tags: [always]
+
+  roles:
+    - role: base
+      tags: [base]
+    - role: desktop
+      tags: [desktop]
+    - role: developer
+      tags: [developer]
+    - role: dotfiles
+      tags: [dotfiles]
+    - role: xmonad
+      tags: [xmonad]
+    - role: apps
+      tags: [apps]
+    - role: personal
+      tags: [personal]

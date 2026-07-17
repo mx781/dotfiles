@@ -1,0 +1,12 @@
+[colors]
+background = "#101e00"
+foreground = "#ffffff"
+accent = "#e35502"
+status_accent = "#98cc0a"
+muted = "#7b7b7b"
+border_normal = "#647702"
+border_focused = "#b5ef4a"
+urgent = "#ff0000"
+status_foreground = "#eeeeee"
+battery_urgent = "#cc0a0a"
+battery_warning = "#ccbf0a"

@@ -1,0 +1,35 @@
+---
+- name: Create the user SSH directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.ssh"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0700'
+
+- name: Create an ED25519 SSH key when one does not already exist
+  ansible.builtin.command: >-
+    ssh-keygen -q -t ed25519 -N '' -f {{ target_home }}/.ssh/id_ed25519
+  args:
+    creates: "{{ target_home }}/.ssh/id_ed25519"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+
+- name: Configure the historical Git identity
+  ansible.builtin.command: "git config --global {{ item.name }} {{ item.value }}"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  loop:
+    - { name: user.name, value: mxunknown }
+    - { name: user.email, value: mxunknown@gmail.com }
+  changed_when: false
+
+- name: Explain the GPG and private-repository follow-up
+  ansible.builtin.debug:
+    msg: >-
+      SSH key created at {{ target_home }}/.ssh/id_ed25519.pub. Add it to GitHub,
+      then run gpg --full-generate-key and clone git@github.com:mx781/knowledge.git
+      into {{ target_home }}/hub/knowledge. P1 does not invent a GPG passphrase or
+      attempt a private clone before its SSH key is authorised.

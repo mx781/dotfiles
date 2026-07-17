@@ -35,6 +35,7 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run(spawnPipe)
 import XMonad.Util.Dzen
+import Theme
 
 import System.IO
 import System.Exit
@@ -44,8 +45,8 @@ import qualified XMonad.StackSet as S
 import qualified Data.Map as M
  
 myTerminal = "alacritty"
-colorNormalBorder   = "#A83F02"
-colorFocusedBorder  = "#E35502"
+colorNormalBorder   = themeBorderNormal
+colorFocusedBorder  = themeBorderFocused
 
 -- Define the names of all workspaces
 myWorkspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -53,7 +54,7 @@ myWorkspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 myLayout = lessBorders OnlyScreenFloat $ avoidStruts $ smartBorders $ tiled ||| Mirror tiled ||| Full ||| tabs ||| simplestFloat
      where
-     tiled = trackFloating $ spacing 3 $ ResizableTall 1 (2/100) (1/2) []
+     tiled = trackFloating $ spacingRaw False (Border 0 0 0 0) False (Border 3 3 3 3) True $ ResizableTall 1 (2/100) (1/2) []
      tabs = simpleTabbed
 
 altMask = mod1Mask
@@ -84,16 +85,16 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , ((winMask .|. altMask, xK_BackSpace), shiftNextScreen)
         , ((winMask .|. altMask, xK_h), shiftToPrev >> prevWS)
         , ((winMask .|. altMask, xK_l), shiftToNext >> nextWS)
-        , ((winMask, xK_g), goToSelected defaultGSConfig)
+        , ((winMask, xK_g), goToSelected def)
   , ((winMask, xK_b), sendMessage ToggleStruts)
   , ((winMask, xK_comma  ), sendMessage Shrink)
   , ((winMask, xK_period ), sendMessage Expand)
   , ((winMask .|. altMask, xK_comma), sendMessage MirrorShrink)
   , ((winMask .|. altMask, xK_period ), sendMessage MirrorExpand)
   , ((winMask .|. altMask, xK_BackSpace), windows $ S.shift "dump")
-  , ((winMask, xK_o), spawn "dmenu_run -i -sb '#e35502' -fn 'Fira Code'")
-  , ((winMask, xK_Return), spawn "dmenu_run -i -sb '#e35502' -fn 'Fira Code'")
-  , ((winMask, xK_v), spawn "clipmenu -i -sb '#e35502' -fn 'Fira Code'")
+  , ((winMask, xK_o), spawn $ "dmenu_run -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
+  , ((winMask, xK_Return), spawn $ "dmenu_run -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
+  , ((winMask, xK_v), spawn $ "clipmenu -i -sb '" ++ themeAccent ++ "' -fn 'Fira Code'")
   , ((0, xK_Print), spawn "scrot -q 95 '%Y-%m-%d_$wx$h.jpg' -e 'mv $f ~/Pictures/'")
   , ((altMask, xK_Print), spawn "maim -s | tee \"/home/maksis/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png\" | xclip -selection clipboard -t image/png -i")
   -- , ((winMask .|. altMask, xK_p), spawn "scrot -s -q 95 ~/Pictures/%Y-%m-%d_%H-%M-%S.jpg -e 'xclip -selection clipboard -t image/jpg -i $f'")
@@ -154,16 +155,16 @@ myEventHook = floatClickFocusHandler
 
 --Bar
 myLogHook :: Handle -> X ()
-myLogHook h = dynamicLogWithPP $ defaultPP
+myLogHook h = dynamicLogWithPP $ def
     {
-        ppCurrent           =   dzenColor "#e35502" "#101e00" . pad
-      , ppVisible           =   dzenColor "white" "#101e00" . pad
-      , ppHidden            =   dzenColor "white" "#101e00" . pad
-      , ppHiddenNoWindows   =   dzenColor "#7b7b7b" "#101e00" . pad
-      , ppUrgent            =   dzenColor "#ff0000" "#101e00" . pad
+        ppCurrent           =   dzenColor themeAccent themeBackground . pad
+      , ppVisible           =   dzenColor themeForeground themeBackground . pad
+      , ppHidden            =   dzenColor themeForeground themeBackground . pad
+      , ppHiddenNoWindows   =   dzenColor themeMuted themeBackground . pad
+      , ppUrgent            =   dzenColor themeUrgent themeBackground . pad
       , ppWsSep             =   " "
       , ppSep               =   "  |  "
-      , ppLayout            =   dzenColor "#e35502" "#101e00" .
+      , ppLayout            =   dzenColor themeAccent themeBackground .
                                 (\x -> case (x) of
                                     "Spacing ResizableTall"             ->      "^i(" ++ myBitmapsDir ++ "/tall.xbm)"
                                     "Mirror Spacing ResizableTall"      ->      "^i(" ++ myBitmapsDir ++ "/mtall.xbm)"
@@ -171,7 +172,7 @@ myLogHook h = dynamicLogWithPP $ defaultPP
                                     "Tabbed Simplest"              ->      "~"
                                     _                           ->      x
                                 )
-      , ppTitle             =   (" " ++) . dzenColor "white" "#101e00" . dzenEscape
+      , ppTitle             =   (" " ++) . dzenColor themeForeground themeBackground . dzenEscape
       , ppOutput            =   hPutStrLn h
     }
 
@@ -222,9 +223,12 @@ myManageHook = (composeAll . concat $
 -- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
 -- dual-ultawide (gravity)
-myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3190' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#101E00'"
-myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '5210' -w '550' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
-myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 550 --monitor 1"
+-- myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3190' -ta 'l' -fn 'Carlito:size=11' -fg '#FFFFFF' -bg '#101E00'"
+-- myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '5210' -w '550' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '#101E00' -fg '#FFFFFF' -y '0'"
+-- myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 550 --monitor 1"
+myXmonadBar = "dzen2 -dock -x '1920' -y '0' -h '18' -w '3040' -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
+myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock -x '4960' -w '400' -h '18' -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "' -y '0'"
+myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
 myStartup = do
   spawn myTrayer

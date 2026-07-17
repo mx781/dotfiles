@@ -1,0 +1,93 @@
+---
+- name: Create APT keyring directory for application repositories
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Install Brave signing key and repository definition
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { url: https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg, dest: /usr/share/keyrings/brave-browser-archive-keyring.gpg }
+    - { url: https://brave-browser-apt-release.s3.brave.com/brave-browser.sources, dest: /etc/apt/sources.list.d/brave-browser-release.sources }
+
+- name: Install Mozilla signing key
+  ansible.builtin.get_url:
+    url: https://packages.mozilla.org/apt/repo-signing-key.gpg
+    dest: /etc/apt/keyrings/packages.mozilla.org.asc
+    mode: '0644'
+
+- name: Configure Mozilla Firefox repository and priority
+  ansible.builtin.copy:
+    dest: "{{ item.dest }}"
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop:
+    - dest: /etc/apt/sources.list.d/mozilla.list
+      content: "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main\n"
+    - dest: /etc/apt/preferences.d/mozilla
+      content: |
+        Package: *
+        Pin: origin packages.mozilla.org
+        Pin-Priority: 1000
+
+- name: Install Gopass repository signing key
+  ansible.builtin.get_url:
+    url: https://packages.gopass.pw/repos/gopass/gopass-archive-keyring.gpg
+    dest: /usr/share/keyrings/gopass-archive-keyring.gpg
+    mode: '0644'
+
+- name: Configure Gopass repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/gopass.sources
+    mode: '0644'
+    content: |
+      Types: deb
+      URIs: https://packages.gopass.pw/repos/gopass
+      Suites: stable
+      Components: main
+      Architectures: amd64 arm64 armhf
+      Signed-By: /usr/share/keyrings/gopass-archive-keyring.gpg
+
+- name: Install desktop applications from APT
+  ansible.builtin.apt:
+    name:
+      - brave-browser
+      - firefox
+      - gopass
+      - gopass-archive-keyring
+      - libreoffice
+    state: present
+    update_cache: true
+
+- name: Download Telegram Desktop archive
+  ansible.builtin.get_url:
+    url: https://telegram.org/dl/desktop/linux
+    dest: /var/cache/p1-telegram.tar.xz
+    mode: '0644'
+
+- name: Install Telegram Desktop
+  ansible.builtin.unarchive:
+    src: /var/cache/p1-telegram.tar.xz
+    dest: /opt
+    remote_src: true
+    creates: /opt/Telegram/Telegram
+
+- name: Link Telegram Desktop executable
+  ansible.builtin.file:
+    src: /opt/Telegram/Telegram
+    dest: /usr/local/bin/Telegram
+    state: link
+
+- name: Download Slack Debian package
+  ansible.builtin.get_url:
+    url: https://downloads.slack-edge.com/desktop-releases/linux/x64/4.50.143/slack-desktop-4.50.143-amd64.deb
+    dest: /var/cache/p1-slack.deb
+    mode: '0644'
+
+- name: Install Slack
+  ansible.builtin.apt:
+    deb: /var/cache/p1-slack.deb

@@ -1,0 +1,4 @@
+.config/alacritty/theme.toml
+.config/shell/theme-prompt.sh
+.xmonad/Theme.hs
+.xmonad/theme-conky.lua

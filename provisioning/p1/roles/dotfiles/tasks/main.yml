@@ -1,0 +1,80 @@
+---
+- name: Initialise dotfile submodules
+  ansible.builtin.command:
+    cmd: git submodule update --init --recursive
+    chdir: "{{ dotfiles_repo }}"
+  become_user: "{{ target_user }}"
+  changed_when: false
+
+- name: Create user configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  loop:
+    - "{{ target_home }}/.config/alacritty"
+    - "{{ target_home }}/.config/nvim"
+    - "{{ target_home }}/Pictures"
+
+- name: Link user dotfiles
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: true
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  loop:
+    - { src: "{{ dotfiles_repo }}/.vimrc", dest: "{{ target_home }}/.vimrc" }
+    - { src: "{{ dotfiles_repo }}/.bashrc", dest: "{{ target_home }}/.bashrc" }
+    - { src: "{{ dotfiles_repo }}/.bash_aliases", dest: "{{ target_home }}/.bash_aliases" }
+    - { src: "{{ dotfiles_repo }}/.xsession", dest: "{{ target_home }}/.xsession" }
+    - { src: "{{ dotfiles_repo }}/.xsession", dest: "{{ target_home }}/.xinitrc" }
+    - { src: "{{ dotfiles_repo }}/scripts", dest: "{{ target_home }}/scripts" }
+    - { src: "{{ dotfiles_repo }}/.xmonad", dest: "{{ target_home }}/.xmonad" }
+    - { src: "{{ dotfiles_repo }}/.config/alacritty/alacritty.toml", dest: "{{ target_home }}/.config/alacritty/alacritty.toml" }
+    - { src: "{{ dotfiles_repo }}/.config/nvim/init.lua", dest: "{{ target_home }}/.config/nvim/init.lua" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-mandra.jpg", dest: "{{ target_home }}/Pictures/bg-mandra.jpg" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-rust.jpg", dest: "{{ target_home }}/Pictures/bg-rust.jpg" }
+
+- name: Install custom keyboard layout
+  ansible.builtin.file:
+    src: "{{ dotfiles_repo }}/usr/share/X11/xkb/symbols/lv_pok3r_p1"
+    dest: /usr/share/X11/xkb/symbols/lv_pok3r_p1
+    state: link
+    force: true
+
+- name: Generate application theme adapters
+  ansible.builtin.command: "{{ dotfiles_repo }}/scripts/theme apply"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Install Neovim plugins declared in the dotfiles
+  ansible.builtin.command: >-
+    nvim -u {{ target_home }}/.vimrc --headless +PlugInstall +qall
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Migrate an existing Leap checkout to Codeberg
+  ansible.builtin.command: git remote set-url origin https://codeberg.org/andyg/leap.nvim
+  args:
+    chdir: "{{ target_home }}/.local/share/nvim/plugged/leap.nvim"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Update Leap from Codeberg
+  ansible.builtin.command: git checkout -B main origin/main
+  args:
+    chdir: "{{ target_home }}/.local/share/nvim/plugged/leap.nvim"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true

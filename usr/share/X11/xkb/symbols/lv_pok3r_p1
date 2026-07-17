@@ -2,11 +2,9 @@ partial alphanumeric_keys
 xkb_symbols "lv_pok3r_p1" {
     include "lv(apostrophe)"
     // Set up level 3 modifiers.
-    include "level3(modifier_mapping)"
     # include "level3(bksl_switch)"
     include "level3(caps_switch)"
     // Set up level 5 modifiers.
-    include "level5(modifier_mapping)"
     include "level5(caps_switch)"
     include "level5(ralt_switch)"
 

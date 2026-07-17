@@ -133,7 +133,7 @@ call plug#begin()
     " Plug 'python-rope/ropevim'
 
     "Navigation
-    Plug 'ggandor/leap.nvim'
+    Plug 'https://codeberg.org/andyg/leap.nvim'
 
     "Jupyter
     Plug 'untitled-ai/jupyter_ascending.vim'

@@ -1,0 +1,76 @@
+---
+- name: Create the user font directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.local/share/fonts"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+
+- name: Download Fira Code Nerd Font 3.4.0
+  ansible.builtin.get_url:
+    url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip
+    dest: /var/cache/p1-FiraCode-3.4.0.zip
+    mode: '0644'
+
+- name: Install Fira Code Nerd Font
+  ansible.builtin.unarchive:
+    src: /var/cache/p1-FiraCode-3.4.0.zip
+    dest: "{{ target_home }}/.local/share/fonts"
+    remote_src: true
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    creates: "{{ target_home }}/.local/share/fonts/FiraCodeNerdFont-Regular.ttf"
+
+- name: Refresh the user font cache
+  ansible.builtin.command: "fc-cache -f {{ target_home }}/.local/share/fonts"
+  become_user: "{{ target_user }}"
+  changed_when: false
+
+- name: Make feh the default image viewer
+  ansible.builtin.command: "xdg-mime default feh.desktop {{ item }}"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  loop:
+    - image/png
+    - image/jpeg
+    - image/jpg
+    - image/gif
+  changed_when: false
+
+- name: Create the vim-plug destination directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.local/share/nvim/site/autoload"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+
+- name: Install vim-plug for Neovim
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    dest: "{{ target_home }}/.local/share/nvim/site/autoload/plug.vim"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+    force: false
+
+- name: Download the latest stable Neovim release
+  ansible.builtin.get_url:
+    url: https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+    dest: /var/cache/p1-nvim-linux-x86_64.tar.gz
+    mode: '0644'
+
+- name: Install the latest stable Neovim release
+  ansible.builtin.unarchive:
+    src: /var/cache/p1-nvim-linux-x86_64.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: /opt/nvim-linux-x86_64/bin/nvim
+
+- name: Make latest stable Neovim available system-wide
+  ansible.builtin.file:
+    src: /opt/nvim-linux-x86_64/bin/nvim
+    dest: /usr/local/bin/nvim
+    state: link
