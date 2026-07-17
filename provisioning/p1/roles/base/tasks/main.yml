@@ -67,9 +67,11 @@
       - build-essential
       - bzip2
       - ca-certificates
+      - cmake
       - conky-std
       - curl
       - dmenu
+      - ffmpeg
       - feh
       - fontconfig
       - fonts-firacode
@@ -83,7 +85,10 @@
       - pinentry-qt
       - pipewire
       - pipewire-pulse
+      - powertop
+      - psmisc
       - ripgrep
+      - rsync
       - scrot
       - tmux
       - unzip
@@ -95,6 +100,7 @@
       - xinit
       - xorg
       - xsecurelock
+      - vlc
     state: present
     update_cache: true
 

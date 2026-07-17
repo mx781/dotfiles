@@ -83,6 +83,34 @@
     state: link
     force: true
 
+- name: Install Claude Code
+  ansible.builtin.command: /usr/local/bin/npm install --global @anthropic-ai/claude-code@latest
+  args:
+    creates: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/claude"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Install Codex CLI
+  ansible.builtin.command: /usr/local/bin/npm install --global @openai/codex@latest
+  args:
+    creates: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/codex"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Expose AI coding CLIs to desktop applications
+  ansible.builtin.file:
+    src: "{{ target_home }}/.local/share/fnm/node-versions/v24.2.0/installation/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+    force: true
+  loop:
+    - claude
+    - codex
+
 - name: Install uv
   ansible.builtin.shell: |
     set -o pipefail
