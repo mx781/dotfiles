@@ -112,7 +112,7 @@ window_id_for() {
 }
 
 capture_window() {
-    local name=$1 pattern=$2 window_id window_id_decimal existing_ids
+    local name=$1 pattern=$2 window_id existing_ids geometry
     shift 2
     existing_ids=$(run_user wmctrl -lx 2>>"$log" |
         awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
@@ -123,12 +123,22 @@ capture_window() {
         window_id=$(window_id_for "$pattern") || true
     fi
     if [[ -n ${window_id:-} ]]; then
-        # wmctrl reports hexadecimal XIDs, whereas maim interprets its input
-        # as decimal.  Convert explicitly or maim silently captures the root.
-        window_id_decimal=$((window_id))
+        # XMonad exposes the client XID to wmctrl. Activate it, then crop the
+        # root screenshot to its xwininfo geometry; maim's --window capture is
+        # unreliable for those client IDs under XMonad.
+        run_user wmctrl -i -a "$window_id" >>"$log" 2>&1 || true
+        sleep 0.5
+        geometry=$(run_user xwininfo -id "$window_id" 2>>"$log" |
+            awk '
+                /Absolute upper-left X:/ { x = $NF }
+                /Absolute upper-left Y:/ { y = $NF }
+                /^  Width:/ { width = $NF }
+                /^  Height:/ { height = $NF }
+                END { if (width && height) printf "%sx%s%+d%+d", width, height, x, y }
+            ')
     fi
-    if [[ -n ${window_id_decimal:-} ]] &&
-        run_user maim -i "$window_id_decimal" "$screenshots/$name.png" >>"$log" 2>&1; then
+    if [[ -n ${geometry:-} ]] &&
+        run_user maim -g "$geometry" "$screenshots/$name.png" >>"$log" 2>&1; then
         pass "screenshot:$name" "screenshots/$name.png"
     else
         fail "screenshot:$name" "did not find a $pattern window"
@@ -168,6 +178,7 @@ EOF
     capture_window slack slack slack
     capture_window vlc vlc vlc
     capture_window arandr arandr arandr
+    [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
 }
 
 report_checks() {
@@ -264,7 +275,7 @@ check_base() {
     local commands=(
         acpi alacritty amixer arandr cmake conky curl dmenu_run ffmpeg feh fc-match
         fzf git htop maim ncdu nnn pavucontrol powertop killall rg rsync scrot tmux
-        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock
+        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock xwininfo
     )
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
