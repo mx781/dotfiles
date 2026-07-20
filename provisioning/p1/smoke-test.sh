@@ -159,9 +159,31 @@ capture_window() {
 }
 
 cleanup_visuals() {
-    local window_id remaining=0
+    local window_id window_pid remaining=0
     for window_id in "${visual_windows[@]}"; do
         run_user wmctrl -i -c "$window_id" >>"$log" 2>&1 || true
+    done
+    sleep 2
+    for window_id in "${visual_windows[@]}"; do
+        if run_user wmctrl -l 2>>"$log" | awk -v id="$window_id" '$1 == id { found = 1 } END { exit !found }'; then
+            window_pid=$(run_user wmctrl -lp 2>>"$log" |
+                awk -v id="$window_id" '$1 == id { print $3; exit }')
+            if [[ $window_pid =~ ^[1-9][0-9]*$ ]]; then
+                printf 'Terminating visual fixture PID %s for window %s\n' "$window_pid" "$window_id" >>"$log"
+                kill -TERM "$window_pid" 2>>"$log" || true
+            fi
+        fi
+    done
+    sleep 2
+    for window_id in "${visual_windows[@]}"; do
+        if run_user wmctrl -l 2>>"$log" | awk -v id="$window_id" '$1 == id { found = 1 } END { exit !found }'; then
+            window_pid=$(run_user wmctrl -lp 2>>"$log" |
+                awk -v id="$window_id" '$1 == id { print $3; exit }')
+            if [[ $window_pid =~ ^[1-9][0-9]*$ ]]; then
+                printf 'Force-terminating visual fixture PID %s for window %s\n' "$window_pid" "$window_id" >>"$log"
+                kill -KILL "$window_pid" 2>>"$log" || true
+            fi
+        fi
     done
     sleep 1
     for window_id in "${visual_windows[@]}"; do
