@@ -262,7 +262,12 @@ EOF
     capture_window telegram telegram 2 Telegram
     capture_window slack slack 4 slack
     capture_window arandr arandr 1 arandr
-    capture_window blender blender 5 blender --factory-startup
+    # Some inherited desktop environments advertise Wayland even though this
+    # smoke test deliberately drives an X11 session.  Blender otherwise tries
+    # Wayland first and leaves a blank window in VirtualBox.  Force its X11
+    # backend so the fixture validates the actual rendered UI.
+    capture_window blender blender 10 env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 \
+        blender --factory-startup
     capture_window libreoffice libreoffice 5 libreoffice \
         "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
     capture_window vlc vlc 1 vlc
