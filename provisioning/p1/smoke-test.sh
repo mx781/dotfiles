@@ -62,9 +62,9 @@ cat >"$checklist" <<EOF
 Review this after the machine checks pass.  Do not capture or paste secrets.
 
 - Review every PNG in this artifact directory.  They cover the default desktop,
-  Alacritty + Neovim glyph fixture, Firefox, Chromium, Brave, LibreOffice,
-  PCManFM, Telegram, Slack, VLC, and ARandR.  Confirm the rendered UI is
-  legible and appropriate.
+  Alacritty + Neovim glyph fixture, Firefox, Chromium, Brave, Blender,
+  LibreOffice, PCManFM, Telegram, Slack, VLC, and ARandR.  Confirm the
+  rendered UI is legible and appropriate.
 - Press Super+V: Clipmenu opens, contains a harmless newly copied value, and
   remains populated after restarting X/startx.  This deliberately avoids
   capturing clipboard contents.
@@ -262,6 +262,7 @@ EOF
     capture_window telegram telegram 2 Telegram
     capture_window slack slack 4 slack
     capture_window arandr arandr 1 arandr
+    capture_window blender blender 5 blender --factory-startup
     capture_window libreoffice libreoffice 5 libreoffice \
         "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
     capture_window vlc vlc 1 vlc
@@ -310,13 +311,14 @@ EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
-        report_checks 'Desktop applications' '^(command:(brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim|vim)|nvim-|vim-nvim|gopass-cli|screenshot:|visual-cleanup)'
+        report_checks 'Desktop applications' '^(command:(blender|brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim|vim)|blender-version|nvim-|vim-nvim|gopass-cli|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
         report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
         report_screenshot firefox 'Firefox'
         report_screenshot chromium 'Chromium'
         report_screenshot brave 'Brave'
+        report_screenshot blender 'Blender'
         report_screenshot libreoffice 'LibreOffice'
         report_screenshot pcmanfm 'PCManFM'
         report_screenshot telegram 'Telegram'
@@ -450,7 +452,7 @@ check_developer() {
 }
 
 check_desktop_apps() {
-    local commands=(brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim vim)
+    local commands=(blender brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim vim)
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
     if run_user nvim --headless '+lua assert(pcall(require, "nvim-treesitter"))' '+qall' >>"$log" 2>&1; then
@@ -467,6 +469,11 @@ check_desktop_apps() {
         pass vim-nvim
     else
         fail vim-nvim 'vim does not resolve to Neovim'
+    fi
+    if run_user blender --version >>"$log" 2>&1; then
+        pass blender-version
+    else
+        fail blender-version
     fi
     if run_user gopass version >>"$log" 2>&1; then
         pass gopass-cli

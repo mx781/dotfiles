@@ -105,3 +105,22 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/slack.list
     state: absent
+
+- name: Download Blender 5.1.2 stable release
+  ansible.builtin.get_url:
+    url: https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz
+    dest: /var/cache/p1-blender-5.1.2-linux-x64.tar.xz
+    mode: '0644'
+
+- name: Install Blender 5.1.2 stable release
+  ansible.builtin.unarchive:
+    src: /var/cache/p1-blender-5.1.2-linux-x64.tar.xz
+    dest: /opt
+    remote_src: true
+    creates: /opt/blender-5.1.2-linux-x64/blender
+
+- name: Make Blender available system-wide
+  ansible.builtin.file:
+    src: /opt/blender-5.1.2-linux-x64/blender
+    dest: /usr/local/bin/blender
+    state: link
