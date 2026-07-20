@@ -125,8 +125,26 @@ new_window_ids_for() {
         '
 }
 
+close_visual_window() {
+    local window_id=$1 window_pid
+    run_user wmctrl -i -c "$window_id" >>"$log" 2>&1 || true
+    sleep 0.5
+    if run_user wmctrl -l 2>>"$log" | awk -v id="$window_id" '$1 == id { found = 1 } END { exit !found }'; then
+        window_pid=$(run_user wmctrl -lp 2>>"$log" |
+            awk -v id="$window_id" '$1 == id { print $3; exit }')
+        [[ $window_pid =~ ^[1-9][0-9]*$ ]] && kill -TERM "$window_pid" 2>>"$log" || true
+    fi
+    sleep 0.5
+    if run_user wmctrl -l 2>>"$log" | awk -v id="$window_id" '$1 == id { found = 1 } END { exit !found }'; then
+        window_pid=$(run_user wmctrl -lp 2>>"$log" |
+            awk -v id="$window_id" '$1 == id { print $3; exit }')
+        [[ $window_pid =~ ^[1-9][0-9]*$ ]] && kill -KILL "$window_pid" 2>>"$log" || true
+    fi
+}
+
 capture_window() {
     local name=$1 pattern=$2 settle_seconds=$3 window_id existing_ids created_window new_window_id
+    local -a created_window_ids=()
     shift 3
     existing_ids=$(run_user wmctrl -lx 2>>"$log" |
         awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
@@ -147,7 +165,10 @@ capture_window() {
     fi
     if [[ ${created_window:-0} -eq 1 ]]; then
         while IFS= read -r new_window_id; do
-            [[ -n $new_window_id ]] && visual_windows+=("$new_window_id")
+            if [[ -n $new_window_id ]]; then
+                created_window_ids+=("$new_window_id")
+                visual_windows+=("$new_window_id")
+            fi
         done < <(new_window_ids_for "$pattern" "$existing_ids")
     fi
     if [[ -n ${window_id:-} ]] &&
@@ -156,6 +177,9 @@ capture_window() {
     else
         fail "screenshot:$name" "did not find a $pattern window"
     fi
+    for new_window_id in "${created_window_ids[@]}"; do
+        close_visual_window "$new_window_id"
+    done
 }
 
 cleanup_visuals() {
