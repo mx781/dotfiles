@@ -112,8 +112,8 @@ window_id_for() {
 }
 
 capture_window() {
-    local name=$1 pattern=$2 window_id existing_ids
-    shift 2
+    local name=$1 pattern=$2 settle_seconds=$3 window_id existing_ids
+    shift 3
     existing_ids=$(run_user wmctrl -lx 2>>"$log" |
         awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
     run_user "$@" >>"$log" 2>&1 &
@@ -126,7 +126,7 @@ capture_window() {
         # XMonad exposes client XIDs to wmctrl, but maim cannot reliably capture
         # those directly. Activate the target, then capture the full X frame.
         run_user wmctrl -i -a "$window_id" >>"$log" 2>&1 || true
-        sleep 0.5
+        sleep "$settle_seconds"
         printf 'Visual fixture %s: window %s\n' "$name" "$window_id" >>"$log"
     fi
     if [[ -n ${window_id:-} ]] &&
@@ -165,16 +165,16 @@ EOF
         fail screenshot:desktop
     fi
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
-    capture_window alacritty-nvim p1-smoke-alacritty \
+    capture_window alacritty-nvim p1-smoke-alacritty 1 \
         alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
-    capture_window firefox firefox firefox --no-remote --profile "$firefox_profile" --new-window about:blank
-    capture_window brave brave brave-browser --new-window about:blank
-    capture_window pcmanfm pcmanfm pcmanfm --new-win "$target_home"
-    capture_window telegram telegram Telegram
-    capture_window slack slack slack
-    capture_window arandr arandr arandr
-    capture_window vlc vlc vlc
-    capture_window libreoffice libreoffice libreoffice \
+    capture_window firefox firefox 2 firefox --no-remote --profile "$firefox_profile" --new-window about:blank
+    capture_window brave brave 1 brave-browser --new-window about:blank
+    capture_window pcmanfm pcmanfm 1 pcmanfm --new-win "$artifacts"
+    capture_window telegram telegram 2 Telegram
+    capture_window slack slack 4 slack
+    capture_window arandr arandr 1 arandr
+    capture_window vlc vlc 1 vlc
+    capture_window libreoffice libreoffice 5 libreoffice \
         "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
 }
