@@ -176,9 +176,9 @@ EOF
     capture_window telegram telegram 2 Telegram
     capture_window slack slack 4 slack
     capture_window arandr arandr 1 arandr
-    capture_window vlc vlc 1 vlc
     capture_window libreoffice libreoffice 5 libreoffice \
         "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
+    capture_window vlc vlc 1 vlc
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
 }
 
