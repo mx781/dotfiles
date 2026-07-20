@@ -6,6 +6,8 @@
   vars:
     target_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
     dotfiles_repo: "{{ lookup('env', 'HOME') }}/hub/dotfiles"
+    # Non-hibernating desktop default. Override at invocation if required.
+    p1_swapfile_size_mb: 8192
   pre_tasks:
     - name: Require Debian 13
       ansible.builtin.assert:

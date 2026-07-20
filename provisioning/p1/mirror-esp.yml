@@ -1,0 +1,13 @@
+---
+- name: Install a fallback GRUB copy on a secondary EFI System Partition
+  hosts: workstation
+  gather_facts: true
+  become: true
+  vars:
+    # Pass this explicitly as a stable /dev/disk/by-uuid/... path.  The role
+    # deliberately refuses to guess which FAT32 partition is the spare ESP.
+    p1_secondary_esp_device: ""
+    p1_secondary_esp_mount: /mnt/p1-secondary-esp
+  roles:
+    - role: mirror_esp
+      tags: [mirror_esp]

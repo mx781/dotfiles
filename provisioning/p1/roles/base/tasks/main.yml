@@ -116,6 +116,45 @@
     name: bluetooth.service
     enabled: true
 
+- name: Check for the P1 encrypted-root swapfile
+  ansible.builtin.stat:
+    path: /swapfile
+  register: p1_swapfile
+
+- name: Create the P1 swapfile
+  ansible.builtin.command:
+    cmd: "fallocate --length {{ p1_swapfile_size_mb }}M /swapfile"
+  when: not p1_swapfile.stat.exists
+
+- name: Restrict swapfile permissions
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Initialise a newly created swapfile
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when: not p1_swapfile.stat.exists
+
+- name: Persist the P1 swapfile mount
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: '/swapfile none swap sw 0 0'
+    create: false
+
+- name: Check active swap devices
+  ansible.builtin.command:
+    cmd: swapon --noheadings --output NAME
+  register: p1_active_swap
+  changed_when: false
+
+- name: Enable the P1 swapfile
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  when: "'/swapfile' not in p1_active_swap.stdout_lines"
+
 - name: Expose Powertop to normal user PATHs
   ansible.builtin.file:
     src: /usr/sbin/powertop

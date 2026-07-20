@@ -1,0 +1,87 @@
+---
+- name: Require an explicitly selected secondary ESP
+  ansible.builtin.assert:
+    that:
+      - p1_secondary_esp_device | length > 0
+      - p1_secondary_esp_device is match('^/dev/')
+    fail_msg: >-
+      Pass p1_secondary_esp_device as the secondary ESP's stable
+      /dev/disk/by-uuid/... path. This role never guesses a boot partition.
+
+- name: Detect whether the installed system was booted in UEFI mode
+  ansible.builtin.stat:
+    path: /sys/firmware/efi
+  register: p1_uefi_firmware
+
+- name: Require a UEFI booted amd64 system with a mounted primary ESP
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture == 'x86_64'
+      - p1_uefi_firmware.stat.exists
+    fail_msg: Boot the installed system in UEFI mode before installing its secondary ESP copy.
+
+- name: Check that the secondary ESP is a FAT filesystem
+  ansible.builtin.command:
+    cmd: "lsblk --noheadings --output FSTYPE {{ p1_secondary_esp_device }}"
+  register: secondary_esp_fstype
+  changed_when: false
+
+- name: Refuse a non-FAT secondary ESP
+  ansible.builtin.assert:
+    that: secondary_esp_fstype.stdout | trim in ['vfat', 'fat', 'fat16', 'fat32']
+    fail_msg: "{{ p1_secondary_esp_device }} is not a FAT EFI System Partition."
+
+- name: Check the primary ESP mount
+  ansible.builtin.command:
+    cmd: findmnt --noheadings --output SOURCE --target /boot/efi
+  register: primary_esp
+  changed_when: false
+
+- name: Require the primary ESP mount
+  ansible.builtin.assert:
+    that: primary_esp.stdout | trim | length > 0
+    fail_msg: /boot/efi is not mounted; boot the installed system in UEFI mode first.
+
+- name: Require GRUB's UEFI installer
+  ansible.builtin.command:
+    cmd: grub-install --version
+  changed_when: false
+
+- name: Create a temporary secondary ESP mount point
+  ansible.builtin.file:
+    path: "{{ p1_secondary_esp_mount }}"
+    state: directory
+    mode: '0700'
+
+- name: Install and verify the secondary ESP boot files
+  block:
+    - name: Mount the secondary ESP
+      ansible.builtin.command:
+        cmd: "mount {{ p1_secondary_esp_device }} {{ p1_secondary_esp_mount }}"
+
+    - name: Install GRUB without changing firmware NVRAM
+      ansible.builtin.command:
+        cmd: >-
+          grub-install --target=x86_64-efi
+          --efi-directory={{ p1_secondary_esp_mount }}
+          --bootloader-id=debian --no-nvram --recheck --force-extra-removable
+
+    - name: Verify standard and fallback GRUB EFI files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: secondary_esp_grub_files
+      loop:
+        - "{{ p1_secondary_esp_mount }}/EFI/debian/grubx64.efi"
+        - "{{ p1_secondary_esp_mount }}/EFI/BOOT/BOOTX64.EFI"
+
+    - name: Require the secondary ESP boot files
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: "Expected GRUB file is missing: {{ item.stat.path }}"
+      loop: "{{ secondary_esp_grub_files.results }}"
+  always:
+    - name: Unmount the secondary ESP
+      ansible.builtin.command:
+        cmd: "umount {{ p1_secondary_esp_mount }}"
+      changed_when: false
+      failed_when: false

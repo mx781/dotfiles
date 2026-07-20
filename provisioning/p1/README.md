@@ -18,6 +18,10 @@ P1 has no partitioning command yet. Those profiles will be tested in a disposabl
 UEFI VM before an installer USB is built. Never use `pucc/00-bootstrap.sh` on
 this machine: its hard-coded `/dev/sda` layout is unrelated to either profile.
 
+The normal P1 run creates and enables an 8 GiB `/swapfile`. It lives within the
+encrypted root filesystem; this default is for suspend, not hibernation. Override
+its size with `-e p1_swapfile_size_mb=VALUE` when needed.
+
 ## First run after Debian 13 installation
 
 Install a minimal Debian 13 system with an administrative user and network
@@ -55,6 +59,55 @@ and builds the pinned Stack project.  Re-run only that stage with:
 ```sh
 ansible-playbook site.yml --ask-become-pass --tags xmonad
 ```
+
+## Remote bootstrap from a newly installed host
+
+Run this once at the new machine's local console. It makes the host reachable
+for the regular P1 bootstrap; choose a port appropriate for the local network.
+
+```sh
+SSH_PORT=2222
+sudo apt-get update
+sudo apt-get install --yes openssh-server git ca-certificates
+printf 'Port %s\n' "$SSH_PORT" | sudo tee /etc/ssh/sshd_config.d/90-p1-port.conf
+sudo sshd -t
+sudo systemctl enable --now ssh
+sudo systemctl restart ssh
+```
+
+From an existing machine, clone and provision the new host over SSH:
+
+```sh
+HOST=host-or-ip-address
+SSH_PORT=2222
+TARGET_USER=maksis
+ssh -p "$SSH_PORT" "$TARGET_USER@$HOST" \
+  "git clone --recurse-submodules https://github.com/mx781/dotfiles \"\$HOME/hub/dotfiles\" && \
+   cd \"\$HOME/hub/dotfiles\" && \
+   sudo ./provisioning/p1/bootstrap.sh --user \"$TARGET_USER\""
+```
+
+If the host uses a firewall, allow the chosen TCP port before disconnecting from
+its local console. The SSH bootstrap is intentionally a small one-time step;
+the normal P1 playbook does not choose or replace an SSH port.
+
+## Secondary ESP boot copy (mirrored installs only)
+
+After the first successful UEFI boot of the `mirror` layout, run this separate
+playbook once to install GRUB on the second disk's EFI System Partition. It
+does not format either ESP and does not update UEFI NVRAM. Use the spare ESP's
+stable UUID path, never a volatile `/dev/sdX` name:
+
+```sh
+lsblk -o PATH,FSTYPE,PARTTYPE,UUID,MOUNTPOINTS
+cd "$HOME/hub/dotfiles/provisioning/p1"
+sudo ansible-playbook mirror-esp.yml \
+  -e p1_secondary_esp_device=/dev/disk/by-uuid/PASTE-THE-SPARE-ESP-UUID
+```
+
+The role writes both Debian's normal GRUB EFI path and the standard fallback
+path, then unmounts the spare ESP. Re-run it after a GRUB package update if you
+want to refresh that redundant copy.
 
 ## Smoke test
 
