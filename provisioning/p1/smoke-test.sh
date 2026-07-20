@@ -60,8 +60,8 @@ Review this after the machine checks pass.  Do not capture or paste secrets.
 - Check the Dzen bar: icons and focused workspace use the selected theme,
   geometry fits the active monitor, and no literal backslashes are visible.
 - Open a terminal, browser, LibreOffice, Telegram, Slack, and VLC once.
-- On the intended physical machine only: check Wi-Fi, Bluetooth, audio,
-  suspend/resume, external monitors, and the custom keyboard's important keys.
+
+Hardware validation is intentionally out of scope for this P1 smoke test.
 EOF
 chown "$target_user:$target_user" "$checklist"
 
@@ -129,7 +129,8 @@ check_base() {
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
 
-    if fc-match 'Fira Code Nerd Font' | grep -qi 'FiraCode'; then
+    if run_user fc-match -f '%{family}\n' 'Fira Code Nerd Font' 2>>"$log" |
+        grep -Eqi 'Fira ?Code.*Nerd|FiraCodeNerd'; then
         pass nerd-font
     else
         fail nerd-font 'Fira Code Nerd Font was not selected by fontconfig'
@@ -236,8 +237,9 @@ check_x_session() {
     fi
     pass x-session "DISPLAY=$display"
 
-    if run_user alacritty -vv -e true >>"$log" 2>&1; then
-        if grep -Eiq 'unused config key|deprecated.*config|config.*error' "$log"; then
+    local alacritty_log="$artifacts/alacritty.log"
+    if run_user alacritty -vv -e true >"$alacritty_log" 2>&1; then
+        if grep -Eiq 'unused config key|deprecated.*config|config.*error' "$alacritty_log"; then
             fail alacritty-config 'see configuration warnings in log'
         else
             pass alacritty-config
@@ -250,9 +252,9 @@ check_x_session() {
         HOME="$target_home" DISPLAY="$display" XAUTHORITY="$target_home/.Xauthority" \
         PATH="/usr/local/bin:/usr/bin:/bin:$target_home/.local/bin:$target_home/.cargo/bin" \
         conky -c "$target_home/.xmonad/.conky_dzen" >"$artifacts/conky-dzen.txt" 2>>"$log"; then :; fi
-    if grep -q '\^fg()' "$artifacts/conky-dzen.txt"; then
+    if grep -Fq '^fg()' "$artifacts/conky-dzen.txt"; then
         fail conky-theme 'empty Dzen foreground directive'
-    elif grep -q '\^fg(#[0-9A-Fa-f]\{6\})' "$artifacts/conky-dzen.txt"; then
+    elif grep -Eq '\^fg\(#[[:xdigit:]]{6}\)' "$artifacts/conky-dzen.txt"; then
         pass conky-theme
     else
         fail conky-theme 'no concrete Dzen colour directive emitted'
@@ -273,7 +275,8 @@ check_x_session() {
     else
         fail clipmenu-daemon 'start a new X session or inspect .xsession'
     fi
-    if run_user "$target_home/.xmonad/build" "$artifacts/xmonad-smoke" >>"$log" 2>&1; then
+    if run_user bash -c 'cd "$HOME/.xmonad" && ./build "$1"' _ \
+        "$artifacts/xmonad-smoke" >>"$log" 2>&1; then
         pass xmonad-build
     else
         fail xmonad-build
