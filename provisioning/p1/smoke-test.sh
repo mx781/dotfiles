@@ -48,8 +48,11 @@ summary="$artifacts/summary.tsv"
 checklist="$artifacts/human-checklist.md"
 report="$artifacts/report.md"
 screenshots="$artifacts/screenshots"
+visual_runtime="$target_home/.cache/p1-smoke/$timestamp"
 mkdir -p "$screenshots"
-chown "$target_user:$target_user" "$screenshots"
+mkdir -p "$visual_runtime"
+chown "$target_user:$target_user" "$screenshots" "$visual_runtime"
+chmod 700 "$visual_runtime"
 touch "$log" "$summary"
 chown "$target_user:$target_user" "$log" "$summary"
 
@@ -138,8 +141,8 @@ capture_window() {
 }
 
 capture_visuals() {
-    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$artifacts/firefox-profile" \
-        libreoffice_profile="$artifacts/libreoffice-profile"
+    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$visual_runtime/firefox-profile" \
+        libreoffice_profile="$visual_runtime/libreoffice-profile"
     cat >"$fixture" <<'EOF'
 P1 visual smoke-test fixture
 
