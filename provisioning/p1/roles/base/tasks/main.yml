@@ -97,7 +97,6 @@
       - wireplumber
       - wmctrl
       - xclip
-      - x11-utils
       - xdg-utils
       - xinit
       - xorg

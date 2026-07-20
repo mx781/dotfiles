@@ -112,7 +112,7 @@ window_id_for() {
 }
 
 capture_window() {
-    local name=$1 pattern=$2 window_id existing_ids geometry
+    local name=$1 pattern=$2 window_id existing_ids
     shift 2
     existing_ids=$(run_user wmctrl -lx 2>>"$log" |
         awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
@@ -123,22 +123,14 @@ capture_window() {
         window_id=$(window_id_for "$pattern") || true
     fi
     if [[ -n ${window_id:-} ]]; then
-        # XMonad exposes the client XID to wmctrl. Activate it, then crop the
-        # root screenshot to its xwininfo geometry; maim's --window capture is
-        # unreliable for those client IDs under XMonad.
+        # XMonad exposes client XIDs to wmctrl, but maim cannot reliably capture
+        # those directly. Activate the target, then capture the full X frame.
         run_user wmctrl -i -a "$window_id" >>"$log" 2>&1 || true
         sleep 0.5
-        geometry=$(run_user xwininfo -id "$window_id" 2>>"$log" |
-            awk '
-                /Absolute upper-left X:/ { x = $NF }
-                /Absolute upper-left Y:/ { y = $NF }
-                /^  Width:/ { width = $NF }
-                /^  Height:/ { height = $NF }
-                END { if (width && height) printf "%sx%s%+d%+d", width, height, x, y }
-            ')
+        printf 'Visual fixture %s: window %s\n' "$name" "$window_id" >>"$log"
     fi
-    if [[ -n ${geometry:-} ]] &&
-        run_user maim -g "$geometry" "$screenshots/$name.png" >>"$log" 2>&1; then
+    if [[ -n ${window_id:-} ]] &&
+        run_user maim "$screenshots/$name.png" >>"$log" 2>&1; then
         pass "screenshot:$name" "screenshots/$name.png"
     else
         fail "screenshot:$name" "did not find a $pattern window"
@@ -146,7 +138,7 @@ capture_window() {
 }
 
 capture_visuals() {
-    local fixture="$artifacts/p1-visual-fixture.txt"
+    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$artifacts/firefox-profile"
     cat >"$fixture" <<'EOF'
 P1 visual smoke-test fixture
 
@@ -155,6 +147,8 @@ Nerd Font glyphs: 󰍛 󰘚 󰖩 󰂯 󰄛 󰅐
 Unicode: → ✓ ★ λ 日本語
 EOF
     chown "$target_user:$target_user" "$fixture"
+    mkdir -p "$firefox_profile"
+    chown "$target_user:$target_user" "$firefox_profile"
 
     local original_workspace
     original_workspace=$(run_user wmctrl -d 2>>"$log" | awk '$2 == "*" { print $1; exit }')
@@ -170,10 +164,10 @@ EOF
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
     capture_window alacritty-nvim p1-smoke-alacritty \
         alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
-    capture_window firefox firefox firefox --new-window about:blank
+    capture_window firefox firefox firefox --no-remote --profile "$firefox_profile" --new-window about:blank
     capture_window brave brave brave-browser --new-window about:blank
     capture_window libreoffice libreoffice libreoffice --writer "$fixture"
-    capture_window pcmanfm pcmanfm pcmanfm "$target_home"
+    capture_window pcmanfm pcmanfm pcmanfm --new-win "$target_home"
     capture_window telegram telegram Telegram
     capture_window slack slack slack
     capture_window vlc vlc vlc
@@ -275,7 +269,7 @@ check_base() {
     local commands=(
         acpi alacritty amixer arandr cmake conky curl dmenu_run ffmpeg feh fc-match
         fzf git htop maim ncdu nnn pavucontrol powertop killall rg rsync scrot tmux
-        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock xwininfo
+        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock
     )
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
