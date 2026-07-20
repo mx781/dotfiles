@@ -78,6 +78,7 @@ chown "$target_user:$target_user" "$checklist"
 passes=0
 failures=0
 skips=0
+visual_windows=()
 
 record() {
     local state=$1 name=$2 detail=${3:-}
@@ -114,15 +115,27 @@ window_id_for() {
     return 1
 }
 
+new_window_ids_for() {
+    local pattern=$1 excluded_ids=${2:-}
+    run_user wmctrl -lx 2>>"$log" |
+        awk -v pattern="$pattern" -v excluded=" $excluded_ids " '
+            index(tolower($0), tolower(pattern)) && index(excluded, " " $1 " ") == 0 {
+                print $1
+            }
+        '
+}
+
 capture_window() {
-    local name=$1 pattern=$2 settle_seconds=$3 window_id existing_ids
+    local name=$1 pattern=$2 settle_seconds=$3 window_id existing_ids created_window new_window_id
     shift 3
     existing_ids=$(run_user wmctrl -lx 2>>"$log" |
         awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
     run_user "$@" >>"$log" 2>&1 &
     # Prefer the window this invocation created.  Single-instance applications
     # may reuse an existing window, so fall back to that after a short wait.
-    if ! window_id=$(window_id_for "$pattern" "$existing_ids" 12); then
+    if window_id=$(window_id_for "$pattern" "$existing_ids" 12); then
+        created_window=1
+    else
         window_id=$(window_id_for "$pattern") || true
     fi
     if [[ -n ${window_id:-} ]]; then
@@ -132,11 +145,35 @@ capture_window() {
         sleep "$settle_seconds"
         printf 'Visual fixture %s: window %s\n' "$name" "$window_id" >>"$log"
     fi
+    if [[ ${created_window:-0} -eq 1 ]]; then
+        while IFS= read -r new_window_id; do
+            [[ -n $new_window_id ]] && visual_windows+=("$new_window_id")
+        done < <(new_window_ids_for "$pattern" "$existing_ids")
+    fi
     if [[ -n ${window_id:-} ]] &&
         run_user maim "$screenshots/$name.png" >>"$log" 2>&1; then
         pass "screenshot:$name" "screenshots/$name.png"
     else
         fail "screenshot:$name" "did not find a $pattern window"
+    fi
+}
+
+cleanup_visuals() {
+    local window_id remaining=0
+    for window_id in "${visual_windows[@]}"; do
+        run_user wmctrl -i -c "$window_id" >>"$log" 2>&1 || true
+    done
+    sleep 1
+    for window_id in "${visual_windows[@]}"; do
+        if run_user wmctrl -l 2>>"$log" | awk -v id="$window_id" '$1 == id { found = 1 } END { exit !found }'; then
+            remaining=1
+            printf 'Visual cleanup left window %s open\n' "$window_id" >>"$log"
+        fi
+    done
+    if ((remaining)); then
+        fail visual-cleanup 'one or more test-created windows remained open'
+    else
+        pass visual-cleanup
     fi
 }
 
@@ -179,6 +216,7 @@ EOF
     capture_window libreoffice libreoffice 5 libreoffice \
         "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
     capture_window vlc vlc 1 vlc
+    cleanup_visuals
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
 }
 
@@ -223,7 +261,7 @@ EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
-        report_checks 'Desktop applications' '^(command:(brave-browser|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:)'
+        report_checks 'Desktop applications' '^(command:(brave-browser|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
         report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
