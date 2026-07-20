@@ -310,7 +310,7 @@ EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
-        report_checks 'Desktop applications' '^(command:(brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:|visual-cleanup)'
+        report_checks 'Desktop applications' '^(command:(brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim|vim)|nvim-|vim-nvim|gopass-cli|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
         report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
@@ -450,7 +450,7 @@ check_developer() {
 }
 
 check_desktop_apps() {
-    local commands=(brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim)
+    local commands=(brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim vim)
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
     if run_user nvim --headless '+lua assert(pcall(require, "nvim-treesitter"))' '+qall' >>"$log" 2>&1; then
@@ -462,6 +462,11 @@ check_desktop_apps() {
         pass nvim-startup
     else
         fail nvim-startup
+    fi
+    if run_user vim --version 2>>"$log" | head -n 1 | grep -q 'NVIM'; then
+        pass vim-nvim
+    else
+        fail vim-nvim 'vim does not resolve to Neovim'
     fi
     if run_user gopass version >>"$log" 2>&1; then
         pass gopass-cli

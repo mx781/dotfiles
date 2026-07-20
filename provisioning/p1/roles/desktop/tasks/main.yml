@@ -74,3 +74,9 @@
     src: /opt/nvim-linux-x86_64/bin/nvim
     dest: /usr/local/bin/nvim
     state: link
+
+- name: Make vim invoke Neovim
+  ansible.builtin.file:
+    src: /usr/local/bin/nvim
+    dest: /usr/local/bin/vim
+    state: link
