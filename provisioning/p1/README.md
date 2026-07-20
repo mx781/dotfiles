@@ -10,7 +10,7 @@ It separates destructive installer choices from repeatable post-install setup.
 
 | Profile | Layout |
 | --- | --- |
-| `mirror` | Two ESPs, RAID1 `/boot`, RAID1 data, then one LUKS2 container and LVM. |
+| `mirror` | Two ESPs, RAID1 `/boot`, RAID1 data, then one LUKS2 container with a single ext4 root filesystem and swapfile (no LVM). |
 | `separate` | Primary disk: ESP, `/boot`, LUKS2; second disk: independent LUKS2 data disk. |
 | `custom` | Debian Installer manual partitioner. |
 
