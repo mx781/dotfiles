@@ -248,10 +248,27 @@ check_x_session() {
         fail alacritty-launch
     fi
 
+    local conky_before conky_pid
+    conky_before=$(pgrep -u "$target_user" -x conky 2>/dev/null | tr '\n' ' ' || true)
     if timeout 4s runuser -u "$target_user" -- env \
         HOME="$target_home" DISPLAY="$display" XAUTHORITY="$target_home/.Xauthority" \
         PATH="/usr/local/bin:/usr/bin:/bin:$target_home/.local/bin:$target_home/.cargo/bin" \
         conky -c "$target_home/.xmonad/.conky_dzen" >"$artifacts/conky-dzen.txt" 2>>"$log"; then :; fi
+    # The configuration daemonizes Conky, so give its child a short window to
+    # flush the first Dzen status line into the artifact before inspecting it.
+    local attempt
+    for attempt in {1..20}; do
+        grep -Eq '\^fg\(#[[:xdigit:]]{6}\)' "$artifacts/conky-dzen.txt" && break
+        sleep 0.2
+    done
+    # Do not leave the temporary Conky instance behind; preserve any bar
+    # instance that predated this test.
+    for conky_pid in $(pgrep -u "$target_user" -x conky 2>/dev/null || true); do
+        case " $conky_before " in
+            *" $conky_pid "*) ;;
+            *) kill "$conky_pid" 2>>"$log" || true ;;
+        esac
+    done
     if grep -Fq '^fg()' "$artifacts/conky-dzen.txt"; then
         fail conky-theme 'empty Dzen foreground directive'
     elif grep -Eq '\^fg\(#[[:xdigit:]]{6}\)' "$artifacts/conky-dzen.txt"; then
