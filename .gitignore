@@ -3,3 +3,4 @@
 .xmonad/Theme.hs
 .xmonad/theme-conky.lua
 themes/selected.toml
+provisioning/p1/test-results/

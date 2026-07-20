@@ -46,6 +46,10 @@ chown "$target_user:$target_user" "$target_home/p1-smoke-artifacts" "$artifacts"
 log="$artifacts/smoke-test.log"
 summary="$artifacts/summary.tsv"
 checklist="$artifacts/human-checklist.md"
+report="$artifacts/report.md"
+screenshots="$artifacts/screenshots"
+mkdir -p "$screenshots"
+chown "$target_user:$target_user" "$screenshots"
 touch "$log" "$summary"
 chown "$target_user:$target_user" "$log" "$summary"
 
@@ -108,8 +112,8 @@ capture_window() {
     shift 2
     run_user "$@" >>"$log" 2>&1 &
     if window_id=$(window_id_for "$pattern") &&
-        run_user maim -i "$window_id" "$artifacts/$name.png" >>"$log" 2>&1; then
-        pass "screenshot:$name" "$artifacts/$name.png"
+        run_user maim -i "$window_id" "$screenshots/$name.png" >>"$log" 2>&1; then
+        pass "screenshot:$name" "screenshots/$name.png"
     else
         fail "screenshot:$name" "did not find a $pattern window"
     fi
@@ -126,8 +130,8 @@ Unicode: → ✓ ★ λ 日本語
 EOF
     chown "$target_user:$target_user" "$fixture"
 
-    if run_user maim "$artifacts/desktop.png" >>"$log" 2>&1; then
-        pass screenshot:desktop "$artifacts/desktop.png"
+    if run_user maim "$screenshots/desktop.png" >>"$log" 2>&1; then
+        pass screenshot:desktop 'screenshots/desktop.png'
     else
         fail screenshot:desktop
     fi
@@ -141,6 +145,65 @@ EOF
     capture_window slack slack slack
     capture_window vlc vlc vlc
     capture_window arandr arandr arandr
+}
+
+report_checks() {
+    local title=$1 pattern=$2
+    printf '## %s\n\n| Status | Check | Detail |\n| --- | --- | --- |\n' "$title"
+    awk -F '\t' -v pattern="$pattern" '
+        $2 ~ pattern {
+            gsub(/\|/, "\\\\|", $3)
+            printf "| %s | `%s` | %s |\\n", $1, $2, $3
+            found = 1
+        }
+        END { if (!found) print "| — | _No checks recorded_ | — |" }
+    ' "$summary"
+    printf '\n'
+}
+
+report_screenshot() {
+    local filename=$1 title=$2
+    printf '### %s\n\n' "$title"
+    if [[ -e $screenshots/$filename.png ]]; then
+        printf '[Open PNG](screenshots/%s.png)\n\n![](screenshots/%s.png)\n\n' "$filename" "$filename"
+    else
+        printf '_No screenshot was captured; inspect the associated check result above._\n\n'
+    fi
+}
+
+write_report() {
+    {
+        cat <<EOF
+# P1 provisioning smoke-test report
+
+Generated: $(date --iso-8601=seconds)
+Target user: \`$target_user\`
+Display: \`$display\`
+
+This is the human-review entry point.  Raw supporting evidence is available in
+[smoke-test.log](smoke-test.log), [summary.tsv](summary.tsv), and
+[screenshots/](screenshots/).
+
+EOF
+        report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|dotfiles-|link:|bash-startup|theme-)'
+        report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
+        report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
+        report_checks 'Desktop applications' '^(command:(brave-browser|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:)'
+        printf '## Visual review\n\n'
+        report_screenshot desktop 'Default desktop, Dzen, and Conky'
+        report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
+        report_screenshot firefox 'Firefox'
+        report_screenshot brave 'Brave'
+        report_screenshot libreoffice 'LibreOffice'
+        report_screenshot pcmanfm 'PCManFM'
+        report_screenshot telegram 'Telegram'
+        report_screenshot slack 'Slack'
+        report_screenshot vlc 'VLC'
+        report_screenshot arandr 'ARandR'
+        printf '## Manual checks\n\n'
+        sed '1,4d' "$checklist"
+    } >"$report"
+    chown "$target_user:$target_user" "$report"
 }
 
 check_command() {
@@ -372,7 +435,8 @@ check_dotfiles
 check_developer
 check_desktop_apps
 check_x_session
+write_report
 
-printf '\nSummary: %d passed, %d failed, %d skipped\nArtifacts: %s\n' \
-    "$passes" "$failures" "$skips" "$artifacts" | tee -a "$log"
+printf '\nSummary: %d passed, %d failed, %d skipped\nArtifacts: %s\nReport: %s\n' \
+    "$passes" "$failures" "$skips" "$artifacts" "$report" | tee -a "$log"
 ((failures == 0))

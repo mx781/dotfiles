@@ -64,10 +64,11 @@ After provisioning and starting X, run the target-side validation script:
 sudo provisioning/p1/smoke-test.sh --user "$USER"
 ```
 
-It writes command logs, a PASS/FAIL summary, a human checklist, and visual PNG
-fixtures to `~/p1-smoke-artifacts/<timestamp>/`. Screenshots are enabled by
-default; use `--no-screenshots` if the current desktop contains sensitive
-content.
+It stages command logs, a PASS/FAIL summary, and visual PNG fixtures in
+`~/p1-smoke-artifacts/<timestamp>/`; the human-review entry point is
+`report.md`. Screenshots are enabled by default; use `--no-screenshots` if the
+current desktop contains sensitive content. When testing remotely, copy the
+complete artifact directory back to the host before reviewing the report.
 
 ## Re-run selected stages
 
