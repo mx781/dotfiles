@@ -108,11 +108,16 @@ window_id_for() {
 }
 
 capture_window() {
-    local name=$1 pattern=$2 window_id
+    local name=$1 pattern=$2 window_id window_id_decimal
     shift 2
     run_user "$@" >>"$log" 2>&1 &
-    if window_id=$(window_id_for "$pattern") &&
-        run_user maim -i "$window_id" "$screenshots/$name.png" >>"$log" 2>&1; then
+    if window_id=$(window_id_for "$pattern"); then
+        # wmctrl reports hexadecimal XIDs, whereas maim interprets its input
+        # as decimal.  Convert explicitly or maim silently captures the root.
+        window_id_decimal=$((window_id))
+    fi
+    if [[ -n ${window_id_decimal:-} ]] &&
+        run_user maim -i "$window_id_decimal" "$screenshots/$name.png" >>"$log" 2>&1; then
         pass "screenshot:$name" "screenshots/$name.png"
     else
         fail "screenshot:$name" "did not find a $pattern window"
@@ -130,11 +135,18 @@ Unicode: → ✓ ★ λ 日本語
 EOF
     chown "$target_user:$target_user" "$fixture"
 
+    local original_workspace
+    original_workspace=$(run_user wmctrl -d 2>>"$log" | awk '$2 == "*" { print $1; exit }')
+    # Workspace 9 is reserved for the clean desktop fixture.  Switch back
+    # immediately after capturing so a test does not leave the user elsewhere.
+    run_user wmctrl -s 8 >>"$log" 2>&1 || true
+    sleep 0.5
     if run_user maim "$screenshots/desktop.png" >>"$log" 2>&1; then
         pass screenshot:desktop 'screenshots/desktop.png'
     else
         fail screenshot:desktop
     fi
+    [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
     capture_window alacritty-nvim p1-smoke-alacritty \
         alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
     capture_window firefox firefox firefox --new-window about:blank
@@ -153,7 +165,7 @@ report_checks() {
     awk -F '\t' -v pattern="$pattern" '
         $2 ~ pattern {
             gsub(/\|/, "\\\\|", $3)
-            printf "| %s | `%s` | %s |\\n", $1, $2, $3
+            printf "| %s | `%s` | %s |\n", $1, $2, $3
             found = 1
         }
         END { if (!found) print "| — | _No checks recorded_ | — |" }
@@ -240,7 +252,7 @@ check_apt() {
 check_base() {
     local commands=(
         acpi alacritty amixer arandr cmake conky curl dmenu_run ffmpeg feh fc-match
-        fzf git htop maim ncdu nnn pcmanfm pavucontrol powertop killall rg rsync scrot tmux
+        fzf git htop maim ncdu nnn pavucontrol powertop killall rg rsync scrot tmux
         unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock
     )
     local command
