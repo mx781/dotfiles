@@ -44,9 +44,9 @@ sudo provisioning/p1/bootstrap.sh --user "$USER"
 
 The bootstrapper installs Ansible from Debian and applies this playbook locally.
 P1 covers the desktop, Docker, Node 24.2.0, uv/Python 3.12, Rust, Brave,
-Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack. It uses the vendors'
-signed APT repositories where available and versioned upstream archives for
-Telegram, Fira Code Nerd Font, and Slack.
+Chromium, Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack. It uses
+the vendors' signed APT repositories where available and versioned upstream
+archives for Telegram, Fira Code Nerd Font, and Slack.
 
 `startx` reads `~/.xinitrc`; P1 links that file to the repository's
 `.xsession`, which starts XMonad.  P1 installs the packaged XMonad dependencies

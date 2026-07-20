@@ -62,9 +62,9 @@ cat >"$checklist" <<EOF
 Review this after the machine checks pass.  Do not capture or paste secrets.
 
 - Review every PNG in this artifact directory.  They cover the default desktop,
-  Alacritty + Neovim glyph fixture, Firefox, Brave, LibreOffice, PCManFM,
-  Telegram, Slack, VLC, and ARandR.  Confirm the rendered UI is legible and
-  appropriate.
+  Alacritty + Neovim glyph fixture, Firefox, Chromium, Brave, LibreOffice,
+  PCManFM, Telegram, Slack, VLC, and ARandR.  Confirm the rendered UI is
+  legible and appropriate.
 - Press Super+V: Clipmenu opens, contains a harmless newly copied value, and
   remains populated after restarting X/startx.  This deliberately avoids
   capturing clipboard contents.
@@ -201,7 +201,7 @@ cleanup_visuals() {
 
 capture_visuals() {
     local fixture="$visual_runtime/p1-visual-fixture.txt" firefox_profile="$visual_runtime/firefox-profile" \
-        libreoffice_profile="$visual_runtime/libreoffice-profile"
+        chromium_profile="$visual_runtime/chromium-profile" libreoffice_profile="$visual_runtime/libreoffice-profile"
     cat >"$fixture" <<'EOF'
 P1 visual smoke-test fixture
 
@@ -212,6 +212,8 @@ EOF
     chown "$target_user:$target_user" "$fixture"
     mkdir -p "$firefox_profile"
     chown "$target_user:$target_user" "$firefox_profile"
+    mkdir -p "$chromium_profile"
+    chown "$target_user:$target_user" "$chromium_profile"
     mkdir -p "$libreoffice_profile"
     chown "$target_user:$target_user" "$libreoffice_profile"
 
@@ -230,6 +232,7 @@ EOF
     capture_window alacritty-nvim p1-smoke-alacritty 1 \
         alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
     capture_window firefox firefox 2 firefox --no-remote --profile "$firefox_profile" --new-window about:blank
+    capture_window chromium chromium 2 chromium --user-data-dir="$chromium_profile" --no-first-run --new-window about:blank
     capture_window brave brave 1 brave-browser --new-window about:blank
     capture_window pcmanfm pcmanfm 1 pcmanfm --new-win "$artifacts"
     capture_window telegram telegram 2 Telegram
@@ -283,11 +286,12 @@ EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
-        report_checks 'Desktop applications' '^(command:(brave-browser|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:|visual-cleanup)'
+        report_checks 'Desktop applications' '^(command:(brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim)|nvim-|gopass-cli|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
         report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
         report_screenshot firefox 'Firefox'
+        report_screenshot chromium 'Chromium'
         report_screenshot brave 'Brave'
         report_screenshot libreoffice 'LibreOffice'
         report_screenshot pcmanfm 'PCManFM'
@@ -422,7 +426,7 @@ check_developer() {
 }
 
 check_desktop_apps() {
-    local commands=(brave-browser firefox gopass libreoffice pcmanfm Telegram slack nvim)
+    local commands=(brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim)
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
     if run_user nvim --headless '+lua assert(pcall(require, "nvim-treesitter"))' '+qall' >>"$log" 2>&1; then

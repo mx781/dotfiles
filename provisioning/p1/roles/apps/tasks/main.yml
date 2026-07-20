@@ -64,6 +64,7 @@
   ansible.builtin.apt:
     name:
       - brave-browser
+      - chromium
       - firefox
       - gopass
       - gopass-archive-keyring
