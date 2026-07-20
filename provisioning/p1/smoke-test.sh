@@ -141,7 +141,7 @@ capture_window() {
 }
 
 capture_visuals() {
-    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$visual_runtime/firefox-profile" \
+    local fixture="$visual_runtime/p1-visual-fixture.txt" firefox_profile="$visual_runtime/firefox-profile" \
         libreoffice_profile="$visual_runtime/libreoffice-profile"
     cat >"$fixture" <<'EOF'
 P1 visual smoke-test fixture
