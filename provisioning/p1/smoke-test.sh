@@ -97,10 +97,14 @@ run_user() {
 }
 
 window_id_for() {
-    local pattern=$1 window_id attempt
-    for attempt in {1..120}; do
+    local pattern=$1 excluded_ids=${2:-} max_attempts=${3:-120} window_id attempt
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
         window_id=$(run_user wmctrl -lx 2>>"$log" |
-            awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { print $1; exit }')
+            awk -v pattern="$pattern" -v excluded=" $excluded_ids " '
+                index(tolower($0), tolower(pattern)) && index(excluded, " " $1 " ") == 0 {
+                    print $1; exit
+                }
+            ')
         [[ -n $window_id ]] && { printf '%s\n' "$window_id"; return 0; }
         sleep 0.25
     done
@@ -108,10 +112,17 @@ window_id_for() {
 }
 
 capture_window() {
-    local name=$1 pattern=$2 window_id window_id_decimal
+    local name=$1 pattern=$2 window_id window_id_decimal existing_ids
     shift 2
+    existing_ids=$(run_user wmctrl -lx 2>>"$log" |
+        awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { printf "%s ", $1 }')
     run_user "$@" >>"$log" 2>&1 &
-    if window_id=$(window_id_for "$pattern"); then
+    # Prefer the window this invocation created.  Single-instance applications
+    # may reuse an existing window, so fall back to that after a short wait.
+    if ! window_id=$(window_id_for "$pattern" "$existing_ids" 12); then
+        window_id=$(window_id_for "$pattern") || true
+    fi
+    if [[ -n ${window_id:-} ]]; then
         # wmctrl reports hexadecimal XIDs, whereas maim interprets its input
         # as decimal.  Convert explicitly or maim silently captures the root.
         window_id_decimal=$((window_id))
