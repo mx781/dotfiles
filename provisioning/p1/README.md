@@ -44,9 +44,9 @@ sudo provisioning/p1/bootstrap.sh --user "$USER"
 
 The bootstrapper installs Ansible from Debian and applies this playbook locally.
 P1 covers the desktop, Docker, Node 24.2.0, uv/Python 3.12, Rust, Brave,
-Firefox, Gopass, LibreOffice, Telegram, and Slack. It uses the vendors' signed
-APT repositories where available and versioned upstream archives for Telegram,
-Fira Code Nerd Font, and Slack.
+Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack. It uses the vendors'
+signed APT repositories where available and versioned upstream archives for
+Telegram, Fira Code Nerd Font, and Slack.
 
 `startx` reads `~/.xinitrc`; P1 links that file to the repository's
 `.xsession`, which starts XMonad.  P1 installs the packaged XMonad dependencies
@@ -55,6 +55,19 @@ and builds the pinned Stack project.  Re-run only that stage with:
 ```sh
 ansible-playbook site.yml --ask-become-pass --tags xmonad
 ```
+
+## Smoke test
+
+After provisioning and starting X, run the target-side validation script:
+
+```sh
+sudo provisioning/p1/smoke-test.sh --user "$USER"
+```
+
+It writes command logs, a PASS/FAIL summary, a human checklist, and visual PNG
+fixtures to `~/p1-smoke-artifacts/<timestamp>/`. Screenshots are enabled by
+default; use `--no-screenshots` if the current desktop contains sensitive
+content.
 
 ## Re-run selected stages
 

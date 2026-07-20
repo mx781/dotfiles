@@ -10,23 +10,24 @@ set -uo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: sudo provisioning/p1/smoke-test.sh --user USER [--display DISPLAY] [--screenshots]
+Usage: sudo provisioning/p1/smoke-test.sh --user USER [--display DISPLAY] [--no-screenshots]
 
 Writes logs and a PASS/FAIL/SKIP summary to ~/p1-smoke-artifacts/<timestamp>.
---screenshots captures the active desktop and may include sensitive content; it
-is deliberately opt-in.
+Visual screenshots are captured by default.  They may include sensitive content
+from an already-active desktop; use --no-screenshots to omit them.
 EOF
 }
 
 target_user=""
 display=":0"
-take_screenshots=0
+take_screenshots=1
 
 while (($#)); do
     case "$1" in
         --user) target_user="${2:?missing user}"; shift 2 ;;
         --display) display="${2:?missing display}"; shift 2 ;;
         --screenshots) take_screenshots=1; shift ;;
+        --no-screenshots) take_screenshots=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -53,13 +54,15 @@ cat >"$checklist" <<EOF
 
 Review this after the machine checks pass.  Do not capture or paste secrets.
 
-- Open a new Alacritty: it uses the default terminal palette, a Fira Code Nerd
-  Font glyph renders correctly, and no configuration warning appears.
+- Review every PNG in this artifact directory.  They cover the default desktop,
+  Alacritty + Neovim glyph fixture, Firefox, Brave, LibreOffice, PCManFM,
+  Telegram, Slack, VLC, and ARandR.  Confirm the rendered UI is legible and
+  appropriate.
 - Press Super+V: Clipmenu opens, contains a harmless newly copied value, and
-  remains populated after restarting X/startx.
-- Check the Dzen bar: icons and focused workspace use the selected theme,
-  geometry fits the active monitor, and no literal backslashes are visible.
-- Open a terminal, browser, LibreOffice, Telegram, Slack, and VLC once.
+  remains populated after restarting X/startx.  This deliberately avoids
+  capturing clipboard contents.
+- Lock and unlock once with XSecureLock.  The automated test does not lock a
+  live X session.
 
 Hardware validation is intentionally out of scope for this P1 smoke test.
 EOF
@@ -87,6 +90,57 @@ run_user() {
     runuser -u "$target_user" -- env \
         HOME="$target_home" DISPLAY="$display" XAUTHORITY="$target_home/.Xauthority" \
         PATH="/usr/local/bin:/usr/bin:/bin:$target_home/.local/bin:$target_home/.cargo/bin" "$@"
+}
+
+window_id_for() {
+    local pattern=$1 window_id attempt
+    for attempt in {1..120}; do
+        window_id=$(run_user wmctrl -lx 2>>"$log" |
+            awk -v pattern="$pattern" 'index(tolower($0), tolower(pattern)) { print $1; exit }')
+        [[ -n $window_id ]] && { printf '%s\n' "$window_id"; return 0; }
+        sleep 0.25
+    done
+    return 1
+}
+
+capture_window() {
+    local name=$1 pattern=$2 window_id
+    shift 2
+    run_user "$@" >>"$log" 2>&1 &
+    if window_id=$(window_id_for "$pattern") &&
+        run_user maim -i "$window_id" "$artifacts/$name.png" >>"$log" 2>&1; then
+        pass "screenshot:$name" "$artifacts/$name.png"
+    else
+        fail "screenshot:$name" "did not find a $pattern window"
+    fi
+}
+
+capture_visuals() {
+    local fixture="$artifacts/p1-visual-fixture.txt"
+    cat >"$fixture" <<'EOF'
+P1 visual smoke-test fixture
+
+ASCII: ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789
+Nerd Font glyphs: 󰍛 󰘚 󰖩 󰂯 󰄛 󰅐
+Unicode: → ✓ ★ λ 日本語
+EOF
+    chown "$target_user:$target_user" "$fixture"
+
+    if run_user maim "$artifacts/desktop.png" >>"$log" 2>&1; then
+        pass screenshot:desktop "$artifacts/desktop.png"
+    else
+        fail screenshot:desktop
+    fi
+    capture_window alacritty-nvim p1-smoke-alacritty \
+        alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
+    capture_window firefox firefox firefox --new-window about:blank
+    capture_window brave brave brave-browser --new-window about:blank
+    capture_window libreoffice libreoffice libreoffice --writer "$fixture"
+    capture_window pcmanfm pcmanfm pcmanfm "$target_home"
+    capture_window telegram telegram Telegram
+    capture_window slack slack slack
+    capture_window vlc vlc vlc
+    capture_window arandr arandr arandr
 }
 
 check_command() {
@@ -123,7 +177,7 @@ check_apt() {
 check_base() {
     local commands=(
         acpi alacritty amixer arandr cmake conky curl dmenu_run ffmpeg feh fc-match
-        fzf git htop maim ncdu nnn pavucontrol powertop killall rg rsync scrot tmux
+        fzf git htop maim ncdu nnn pcmanfm pavucontrol powertop killall rg rsync scrot tmux
         unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock
     )
     local command
@@ -210,7 +264,7 @@ check_developer() {
 }
 
 check_desktop_apps() {
-    local commands=(brave-browser firefox gopass libreoffice Telegram slack nvim)
+    local commands=(brave-browser firefox gopass libreoffice pcmanfm Telegram slack nvim)
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
     if run_user nvim --headless '+lua assert(pcall(require, "nvim-treesitter"))' '+qall' >>"$log" 2>&1; then
@@ -306,13 +360,9 @@ check_x_session() {
     fi
 
     if ((take_screenshots)); then
-        if run_user maim "$artifacts/desktop.png" >>"$log" 2>&1; then
-            pass desktop-screenshot "$artifacts/desktop.png"
-        else
-            fail desktop-screenshot
-        fi
+        capture_visuals
     else
-        skip desktop-screenshot 'use --screenshots only when the desktop has no sensitive content'
+        skip screenshots 'disabled with --no-screenshots'
     fi
 }
 
