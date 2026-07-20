@@ -138,7 +138,8 @@ capture_window() {
 }
 
 capture_visuals() {
-    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$artifacts/firefox-profile"
+    local fixture="$artifacts/p1-visual-fixture.txt" firefox_profile="$artifacts/firefox-profile" \
+        libreoffice_profile="$artifacts/libreoffice-profile"
     cat >"$fixture" <<'EOF'
 P1 visual smoke-test fixture
 
@@ -149,6 +150,8 @@ EOF
     chown "$target_user:$target_user" "$fixture"
     mkdir -p "$firefox_profile"
     chown "$target_user:$target_user" "$firefox_profile"
+    mkdir -p "$libreoffice_profile"
+    chown "$target_user:$target_user" "$libreoffice_profile"
 
     local original_workspace
     original_workspace=$(run_user wmctrl -d 2>>"$log" | awk '$2 == "*" { print $1; exit }')
@@ -166,12 +169,13 @@ EOF
         alacritty --class p1-smoke-alacritty,p1-smoke-alacritty -e nvim "$fixture"
     capture_window firefox firefox firefox --no-remote --profile "$firefox_profile" --new-window about:blank
     capture_window brave brave brave-browser --new-window about:blank
-    capture_window libreoffice libreoffice libreoffice --writer "$fixture"
     capture_window pcmanfm pcmanfm pcmanfm --new-win "$target_home"
     capture_window telegram telegram Telegram
     capture_window slack slack slack
-    capture_window vlc vlc vlc
     capture_window arandr arandr arandr
+    capture_window vlc vlc vlc
+    capture_window libreoffice libreoffice libreoffice \
+        "-env:UserInstallation=file://$libreoffice_profile" --writer "$fixture"
     [[ -n $original_workspace ]] && run_user wmctrl -s "$original_workspace" >>"$log" 2>&1 || true
 }
 
