@@ -389,7 +389,7 @@ check_base() {
     fi
     systemctl is-enabled --quiet systemd-timesyncd.service && pass timesync-enabled || fail timesync-enabled
     systemctl is-enabled --quiet bluetooth.service && pass bluetooth-enabled || fail bluetooth-enabled
-    if swapon --noheadings --output NAME | grep -qx /swapfile; then
+    if swapon --noheadings --show=NAME | grep -qx /swapfile; then
         pass swapfile-active
     else
         fail swapfile-active '/swapfile is not active'

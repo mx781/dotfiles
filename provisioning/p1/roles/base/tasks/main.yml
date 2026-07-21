@@ -146,7 +146,7 @@
 
 - name: Check active swap devices
   ansible.builtin.command:
-    cmd: swapon --noheadings --output NAME
+    cmd: swapon --noheadings --show=NAME
   register: p1_active_swap
   changed_when: false
 
