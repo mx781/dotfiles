@@ -38,11 +38,37 @@ done
 [[ $EUID -eq 0 ]] || { echo 'Run this script with sudo.' >&2; exit 1; }
 [[ -n $target_user ]] || { echo '--user is required.' >&2; exit 2; }
 id "$target_user" >/dev/null
+target_home=$(getent passwd "$target_user" | cut -d: -f6)
+[[ -n $target_home && -d $target_home ]] || {
+    printf 'Could not determine a usable home directory for %s.\n' "$target_user" >&2
+    exit 1
+}
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 dotfiles_dir="${dotfiles_dir:-$(cd -- "$script_dir/../.." && pwd)}"
 [[ -f $dotfiles_dir/.git/config ]] || {
     printf 'Not a Git checkout: %s\n' "$dotfiles_dir" >&2
+    exit 1
+}
+
+# P1 manages this checkout as the principal user.  This also makes a bootstrap
+# launched from a root console safe: relocate the already-verified checkout
+# rather than leaving the user unable to read or update /root/dotfiles.
+target_dotfiles_dir="$target_home/hub/dotfiles"
+if [[ $dotfiles_dir != "$target_dotfiles_dir" ]]; then
+    if [[ -e $target_dotfiles_dir ]]; then
+        printf 'Target checkout already exists: %s\n' "$target_dotfiles_dir" >&2
+        printf 'Rerun with --dotfiles-dir %s after reviewing it.\n' "$target_dotfiles_dir" >&2
+        exit 1
+    fi
+    install -d -o "$target_user" -g "$target_user" -m 0755 "$target_home/hub"
+    mv "$dotfiles_dir" "$target_dotfiles_dir"
+    dotfiles_dir="$target_dotfiles_dir"
+fi
+chown -R "$target_user:$target_user" "$dotfiles_dir"
+script_dir="$dotfiles_dir/provisioning/p1"
+[[ -x $script_dir/bootstrap.sh ]] || {
+    printf 'Missing bootstrap script after checkout normalisation: %s\n' "$script_dir" >&2
     exit 1
 }
 

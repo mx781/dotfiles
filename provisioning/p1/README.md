@@ -46,6 +46,12 @@ cd "$HOME/hub/dotfiles"
 sudo provisioning/p1/bootstrap.sh --user "$USER"
 ```
 
+Bootstrap normalises the checked-out repository to the `--user` account's
+`~/hub/dotfiles`. If it was launched from a root-console checkout such as
+`/root/dotfiles`, it relocates that verified checkout and fixes its ownership
+before applying P1. The principal user—not root—therefore owns all dotfiles
+and user-level tooling.
+
 The bootstrapper installs Ansible from Debian and applies this playbook locally.
 P1 covers the desktop, Docker, Node 24.2.0, uv/Python 3.12, Rust, Blender,
 Brave, Chromium, Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack.
