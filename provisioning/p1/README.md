@@ -29,9 +29,9 @@ access.  During Debian Installer:
 
 - allow firmware detection and installation;
 - configure the network; and
-- answer **Yes** to **Use a network mirror** when it is offered.  The full DVD
-  is useful offline installation media, but P1 will replace any DVD-only APT
-  source with the standard Debian archives.
+- network access is sufficient; the full DVD is useful offline installation
+  media, but P1 replaces any DVD-only APT source with the standard Debian
+  archives before its first package update.
 
 P1 enables network time synchronisation, waits for NTP, writes the signed
 `trixie`, `trixie-updates`, and `trixie-security` archive configuration (with
