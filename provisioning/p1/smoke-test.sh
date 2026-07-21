@@ -313,7 +313,7 @@ This is the human-review entry point.  Raw supporting evidence is available in
 [screenshots/](screenshots/).
 
 EOF
-        report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|swapfile-active|dotfiles-|link:|bash-startup|theme-)'
+        report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|swapfile-active|sudo-access|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
         report_checks 'Desktop applications' '^(command:(blender|brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim|vim)|blender-version|nvim-|vim-nvim|gopass-cli|screenshot:|visual-cleanup)'
@@ -393,6 +393,11 @@ check_base() {
         pass swapfile-active
     else
         fail swapfile-active '/swapfile is not active'
+    fi
+    if id -nG "$target_user" | tr ' ' '\n' | grep -qx sudo; then
+        pass sudo-access
+    else
+        fail sudo-access "$target_user is not in the sudo group"
     fi
 }
 

@@ -56,6 +56,12 @@
     state: present
     update_cache: true
 
+- name: Grant the principal user sudo access
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    groups: sudo
+    append: true
+
 - name: Install base workstation packages
   ansible.builtin.apt:
     name:
