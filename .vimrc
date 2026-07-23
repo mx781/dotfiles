@@ -1,4 +1,5 @@
 "General behavior settings (sets)
+set exrc
 set number relativenumber
 set scrolloff=5
 
@@ -13,6 +14,8 @@ set hidden
 nmap <C-A-n> :enew<CR>
 nnoremap <leader>b :ls<cr>:b<space>
 tnoremap <Esc> <C-\><C-n>
+" F1 is always a typo for esc
+inoremap <F1> <Esc>
 
 set clipboard+=unnamedplus
 inoremap <C-v> <C-o>:set paste<CR><C-r>+<C-o>:set paste!<CR>
@@ -110,7 +113,7 @@ call plug#begin()
     Plug 'L3MON4D3/LuaSnip'
     " Plug 'VonHeikemen/lsp-zero.nvim', {'branch': 'v3.x'}
 
-    Plug 'github/copilot.vim'
+    " Plug 'github/copilot.vim'
 
     ""Avante
     """Deps
@@ -188,6 +191,9 @@ let g:highlightedyank_highlight_duration = 350
 
 ""Commentary
 """Comment out line(s)
+""""Most terminals send <C-_> for ctrl+slash; newer nvim sends <C-/>. Bind both.
+nmap <C-_> gc$
+vmap <C-_> gc$
 nmap <C-/> gc$
 vmap <C-/> gc$
 
@@ -237,7 +243,9 @@ let g:jupyter_ascending_auto_write = v:false
 
 ""Notebooks, a la mx (with inspiration from ov and qq)
 " let g:cell = "^# \\?%%\s*$"
-let g:cell = "^# \\?%%\\(\\ \\[markdown\\]\\)\\?\s*$"
+" Matches '# %%' plus any trailing metadata jupytext/colab emits, e.g.
+" '# %% [markdown]' or '# %% id="-Xbb0cuLzwgf"'
+let g:cell = '^# \?%%\( .*\)\?$'
 nmap <leader>mz o# %%<cr><esc>
 nmap <leader>ma O# %%<cr><esc>
 
@@ -322,7 +330,6 @@ function! RunSelection() range
 
   "Remove comment marker before magics (so python file can be valid syntax)
   let l:lines = split(@+, "\n")
-  let l:modified_lines = map(l:lines, 'substitute(v:val, "^# %", "%", "")')
   let l:modified_lines = map(l:lines, 'substitute(v:val, "^# %", "%", "")')
   let l:modified_lines = map(l:modified_lines, 'substitute(v:val, "^# !", "!", "")')
   let @+ = join(l:modified_lines, "\n")
