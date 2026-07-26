@@ -375,22 +375,142 @@ nnoremap <leader>ba :exe 'sign place ' . line('.') . ' name=MyBookmark line=' . 
 nnoremap <leader>bd :exec 'sign unplace ' . line('.')<CR>
 nnoremap <leader>bl :sign list<CR>
 
-fun! NFH_png(filename)
-  " first want to cd to the directory of the current document that's being
-  " edited, otherwise relative paths won't work.
-  let directory_containing_file = expand('%:p:h')
-  let var_to_call= "cd '" . directory_containing_file . "' && feh -B '#999999' -A ';realpath \"%F\" | xclip -selection clipboard' '" . a:filename . "' &"
-  "call system("feh -B black " . a:filename . "&")
-  call system(var_to_call)
-  echo var_to_call
-  " echo var_to_call
+" Nearest ancestor of {path} containing a .obsidian directory, i.e. the vault
+" root that bare wikilinks resolve against. Falls back to the directory
+" containing {path} when there is no vault.
+fun! NFH_vault_root(path) abort
+  let l:dir = fnamemodify(a:path, ':p:h')
+  let l:marker = finddir('.obsidian', l:dir . ';')
+  if empty(l:marker)
+    return l:dir
+  endif
+  " strip the trailing slash fnamemodify(':p') puts on directories, so a
+  " single ':h' reliably drops the .obsidian component itself
+  let l:marker = substitute(fnamemodify(l:marker, ':p'), '/\+$', '', '')
+  return fnamemodify(l:marker, ':h')
 endfun
 
-fun! NFH_note_pngs()
-  let note = expand('%:p')
-  let pattern = '!\[\[([^]|#]+)(?:#[^]|]*)?(?:\|[^]]*)?\]\]'
-  let cmd = 'rg -o --replace ' . shellescape('$1') . ' ' . shellescape(pattern) . ' ' . shellescape(note) . " | xargs -r -d '\\n' feh -B '#999999' -A ';realpath \"%F\" | xclip -selection clipboard' &"
-  call system(cmd)
+" Resolve a wikilink target to an absolute path the way Obsidian does:
+" alongside the note first, then vault-root-relative, then the attachment
+" folder. Returns '' when nothing matches.
+fun! NFH_resolve_link(target, note) abort
+  let l:root = NFH_vault_root(a:note)
+  let l:candidates = [
+    \ fnamemodify(a:note, ':p:h') . '/' . a:target,
+    \ l:root . '/' . a:target,
+    \ l:root . '/attachments/' . a:target,
+    \ ]
+  for l:candidate in l:candidates
+    if filereadable(l:candidate)
+      return l:candidate
+    endif
+  endfor
+  return ''
+endfun
+
+let g:NFH_image_extensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'tif', 'tiff']
+
+fun! NFH_is_image(target) abort
+  return index(g:NFH_image_extensions, tolower(fnamemodify(a:target, ':e'))) >= 0
+endfun
+
+" Open {paths} in a single feh instance; the action key copies the real path of
+" the displayed image to the clipboard.
+fun! NFH_feh(paths) abort
+  let l:cmd = 'feh -B ' . shellescape('#999999')
+    \ . ' -A ' . shellescape(';realpath "%F" | xclip -selection clipboard')
+    \ . ' ' . join(map(copy(a:paths), 'shellescape(v:val)'), ' ') . ' &'
+  call system(l:cmd)
+endfun
+
+" The wikilink target under the cursor, or '' when the cursor is not inside a
+" [[link]] / ![[embed]]. Anchors and |aliases are stripped.
+fun! NFH_link_under_cursor() abort
+  let l:line = getline('.')
+  let l:col = col('.')
+  let l:start = 0
+  while 1
+    let [l:match, l:from, l:to] = matchstrpos(l:line, '!\?\[\[[^]]\+\]\]', l:start)
+    if l:from < 0
+      return ''
+    endif
+    " matchstrpos gives 0-based byte offsets, col('.') is 1-based
+    if l:col > l:from && l:col <= l:to
+      return substitute(matchstr(l:match, '\[\[\zs[^]|#]\+'), '^\s\+\|\s\+$', '', 'g')
+    endif
+    let l:start = l:to
+  endwhile
+endfun
+
+" gx for notes: an image wikilink under the cursor opens in feh, anything else
+" falls through to the normal system handler so plain URLs keep working.
+fun! NFH_gx() abort
+  let l:target = NFH_link_under_cursor()
+  if !empty(l:target) && NFH_is_image(l:target)
+    let l:path = NFH_resolve_link(l:target, expand('%:p'))
+    if empty(l:path)
+      echohl WarningMsg
+      echom 'gx: unresolved link: ' . l:target
+      echohl None
+      return
+    endif
+    call NFH_feh([l:path])
+    return
+  endif
+
+  " same target expression Neovim's built-in gx and netrw's both use
+  let l:cfile = expand('<cfile>')
+  if empty(l:cfile)
+    return
+  endif
+  if has('nvim')
+    call v:lua.vim.ui.open(l:cfile)
+  elseif exists('*netrw#BrowseX')
+    call netrw#BrowseX(l:cfile, netrw#CheckIfRemote(l:cfile))
+  endif
+endfun
+
+augroup NFHNoteMappings
+  autocmd!
+  autocmd FileType markdown nnoremap <buffer> <silent> gx :call NFH_gx()<CR>
+augroup END
+
+fun! NFH_note_pngs() abort
+  let l:note = expand('%:p')
+  let l:pattern = '!\[\[([^]|#]+)(?:#[^]|]*)?(?:\|[^]]*)?\]\]'
+  let l:targets = systemlist('rg -o --no-filename --replace ' . shellescape('$1')
+    \ . ' ' . shellescape(l:pattern) . ' ' . shellescape(l:note))
+
+  let l:paths = []
+  let l:missing = []
+  for l:raw in l:targets
+    let l:target = substitute(l:raw, '^\s\+\|\s\+$', '', 'g')
+    " skip note transclusions and anything feh cannot display
+    if empty(l:target) || !NFH_is_image(l:target)
+      continue
+    endif
+    let l:path = NFH_resolve_link(l:target, l:note)
+    if empty(l:path)
+      call add(l:missing, l:target)
+    else
+      call add(l:paths, l:path)
+    endif
+  endfor
+
+  if !empty(l:missing)
+    echohl WarningMsg
+    echom 'NFHNotePngs: unresolved ' . len(l:missing) . ' link(s): ' . join(l:missing[:4], ', ')
+    echohl None
+  endif
+
+  if empty(l:paths)
+    echohl WarningMsg
+    echom 'NFHNotePngs: no viewable images in this note'
+    echohl None
+    return
+  endif
+
+  call NFH_feh(l:paths)
 endfun
 command! NFHNotePngs call NFH_note_pngs()
 nnoremap <silent> gX :call NFH_note_pngs()<CR>
@@ -400,19 +520,30 @@ let g:netrw_browsex_viewer = '-'
 
 nnoremap <silent> p :call NotemasterPaste()<cr>
 
-" TODO: make it more flexible in regards to where the images are pasted and
-" the mechanism behind it. currently, always just pastes in same folder as
-" file, and links in the same way. But an option to save in a separate dir
-" would have to  be customized. Also unsure about how semantically clean this
-" is.
-"
+" Images always land in <vault root>/attachments and are linked bare, i.e.
+" '![[pasted_image_9.png]]', matching how the vast majority of the notes are
+" written and how Obsidian itself pastes. The path is derived from the note
+" being edited, never from the cwd, so pasting from a subdirectory does not
+" strand the file in a nested attachments/ dir.
 
 function! NotemasterPaste() abort
   let targets = filter(
       \ systemlist('xclip -selection clipboard -t TARGETS -o'),
       \ 'v:val =~# ''image''')
-  if empty(targets)
-"     normal p
+
+  " only treat this as an image paste if the clipboard offers a subtype we can
+  " actually name a file after; junk like image/x-qt-image is not usable.
+  let mimetype = ''
+  for candidate in targets
+    if index(g:NFH_image_extensions, tolower(split(candidate, '/')[-1])) >= 0
+      let mimetype = candidate
+      if candidate ==# 'image/png'
+        break
+      endif
+    endif
+  endfor
+
+  if empty(mimetype)
     let reg_specifier = v:register
     let cmd = 'normal! "' . reg_specifier . 'p'
     execute cmd
@@ -423,15 +554,14 @@ function! NotemasterPaste() abort
   " always.
   execute "normal! o\<Esc>"
 
-  let outdir = "attachments"
+  let outdir = NFH_vault_root(expand('%:p')) . '/attachments'
   if !isdirectory(outdir)
-    call mkdir(outdir)
+    call mkdir(outdir, 'p')
   endif
 
-  let mimetype = targets[0]
   let extension = split(mimetype, '/')[-1]
 
-  let filename_no_extension = system('find ' . outdir . ' -name "pasted_image_*" -printf "%f\n" | sort -V | tail -n -1 | sed -E ''s/(pasted_image_)([0-9]+)(\..*)/echo "\1$((\2+1))"/e''')
+  let filename_no_extension = system('find ' . shellescape(outdir) . ' -name "pasted_image_*" -printf "%f\n" | sort -V | tail -n -1 | sed -E ''s/(pasted_image_)([0-9]+)(\..*)/echo "\1$((\2+1))"/e''')
   if filename_no_extension == ""
     let filename_no_extension = 'pasted_image_0'
   endif
@@ -442,9 +572,9 @@ function! NotemasterPaste() abort
 
 " FROM HERE ON OUT IT SHOULD BE DONE
   call system(printf('xclip -selection clipboard -t %s -o > %s',
-    \ mimetype, dir_with_filename))
+    \ shellescape(mimetype), shellescape(dir_with_filename)))
 
-  let @* = '![[' . dir_with_filename . ']]'
+  let @* = '![[' . filename . ']]'
   normal! "*p
   " if we get this far, we pasted an image -> want to automatically break to a
   " new line.
