@@ -153,6 +153,43 @@ if command -v pyenv >/dev/null 2>&1; then
     eval "$(pyenv init -)"
 fi
 
-set -o vi
+# Deliberately not `set -o vi`: it breaks Alt+Backspace (ESC is eaten as the
+# insert->command mode switch, so backward-kill-word never fires).
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+export EDITOR='nvim'
+
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+[ -d "$BUN_INSTALL/bin" ] && export PATH="$BUN_INSTALL/bin:$PATH"
+
+# opencode
+[ -d "$HOME/.opencode/bin" ] && export PATH="$HOME/.opencode/bin:$PATH"
+
+# elixir / otp
+[ -d "$HOME/.elixir-install/installs/otp/27.1.2/bin" ] && export PATH="$HOME/.elixir-install/installs/otp/27.1.2/bin:$PATH"
+[ -d "$HOME/.elixir-install/installs/elixir/1.18.2-otp-27/bin" ] && export PATH="$HOME/.elixir-install/installs/elixir/1.18.2-otp-27/bin:$PATH"
+
+ulimit -c unlimited
+
+encrypt_file_to_clipboard() {
+    age -e -p --armor "$1" | xclip -selection clipboard
+  echo "Please write SAVE if you want to avoid shredding your file"
+  read input
+  if [ "$input" = "SAVE" ]; then
+    echo "File not shredded."
+  else
+    shred -u "$1"
+    echo "File shredded."
+  fi
+}
+
+decrypt_clipboard() {
+  tempfile=$(mktemp)
+  xclip -selection clipboard -o | age --decrypt > "$tempfile"
+  nvim "$tempfile"
+  shred -u "$tempfile"
+}
