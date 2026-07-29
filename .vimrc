@@ -320,10 +320,20 @@ function! TmuxWorkspace()
 endfunction
 
 
+function! Sesh(session)
+    execute 'vsplit'
+    execute 'wincmd w'
+    execute 'terminal'
+    execute 'startinsert'
+    " -A: attach if the session exists, otherwise create it
+    call feedkeys("tmux new-session -A -s " . shellescape(a:session) . "\<CR>", 't')
+endfunction
+
 command! MakeFileNotebook :call MakeFileNotebook()
 command! OpenFileNotebook :call OpenFileNotebook()
 command! FileNotebook :call FileNotebook()
 command! TmuxWorkspace :call TmuxWorkspace()
+command! -nargs=1 Sesh :call Sesh(<q-args>)
 
 function! RunSelection() range
   execute a:firstline . ',' . a:lastline . 'y +'
