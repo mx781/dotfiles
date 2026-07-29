@@ -4,3 +4,5 @@
 .xmonad/theme-conky.lua
 themes/selected.toml
 provisioning/p1/test-results/
+# Plaintext SSH config: only .ssh/config.age is committed.
+.ssh/config

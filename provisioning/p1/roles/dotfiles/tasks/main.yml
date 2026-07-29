@@ -19,6 +19,14 @@
     - "{{ target_home }}/.config/shell"
     - "{{ target_home }}/Pictures"
 
+- name: Create the user SSH directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.ssh"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0700'
+
 - name: Link user dotfiles
   ansible.builtin.file:
     src: "{{ item.src }}"
@@ -35,6 +43,7 @@
     - { src: "{{ dotfiles_repo }}/.xsession", dest: "{{ target_home }}/.xinitrc" }
     - { src: "{{ dotfiles_repo }}/scripts", dest: "{{ target_home }}/scripts" }
     - { src: "{{ dotfiles_repo }}/.xmonad", dest: "{{ target_home }}/.xmonad" }
+    - { src: "{{ dotfiles_repo }}/.screenlayout", dest: "{{ target_home }}/.screenlayout" }
     - { src: "{{ dotfiles_repo }}/.config/alacritty/alacritty.toml", dest: "{{ target_home }}/.config/alacritty/alacritty.toml" }
     - { src: "{{ dotfiles_repo }}/.config/shell/theme-prompt.sh", dest: "{{ target_home }}/.config/shell/theme-prompt.sh" }
     - { src: "{{ dotfiles_repo }}/.config/nvim/init.lua", dest: "{{ target_home }}/.config/nvim/init.lua" }
@@ -42,6 +51,27 @@
     - { src: "{{ dotfiles_repo }}/Pictures/bg-rust.jpg", dest: "{{ target_home }}/Pictures/bg-rust.jpg" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-kristaps-ungurs.jpg", dest: "{{ target_home }}/Pictures/bg-kristaps-ungurs.jpg" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-karina-skrypnik.jpg", dest: "{{ target_home }}/Pictures/bg-karina-skrypnik.jpg" }
+
+- name: Check for the SSH identity that decrypts the client config
+  ansible.builtin.stat:
+    path: "{{ target_home }}/.ssh/id_rsa"
+  register: p1_ssh_identity
+
+- name: Decrypt the SSH client config
+  ansible.builtin.command: "{{ dotfiles_repo }}/scripts/ssh-config decrypt"
+  args:
+    creates: "{{ target_home }}/.ssh/config"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  when: p1_ssh_identity.stat.exists
+
+- name: Explain a skipped SSH config decryption
+  ansible.builtin.debug:
+    msg: >-
+      {{ target_home }}/.ssh/id_rsa is absent, so .ssh/config.age was left
+      encrypted. Restore that key, then run scripts/ssh-config decrypt.
+  when: not p1_ssh_identity.stat.exists
 
 - name: Install custom keyboard layout
   ansible.builtin.file:

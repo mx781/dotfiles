@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Encrypt/decrypt the SSH client config carried by this repository.
+#
+# Only .ssh/config.age is committed; the plaintext never is. The ciphertext is
+# encrypted to an SSH public key, so any machine already holding that private
+# key decrypts it without a passphrase.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENCRYPTED="$ROOT/.ssh/config.age"
+PLAINTEXT="$HOME/.ssh/config"
+RECIPIENT="${SSH_CONFIG_AGE_RECIPIENT:-$HOME/.ssh/id_rsa.pub}"
+IDENTITY="${SSH_CONFIG_AGE_IDENTITY:-$HOME/.ssh/id_rsa}"
+
+die() { echo "${0##*/}: $1" >&2; exit 1; }
+
+case "${1:-}" in
+encrypt)
+    [ -f "$PLAINTEXT" ] || die "no plaintext at $PLAINTEXT"
+    [ -f "$RECIPIENT" ] || die "no recipient key at $RECIPIENT"
+    age -R "$RECIPIENT" -o "$ENCRYPTED" "$PLAINTEXT"
+    echo "encrypted $PLAINTEXT -> $ENCRYPTED"
+    ;;
+decrypt)
+    [ -f "$ENCRYPTED" ] || die "no ciphertext at $ENCRYPTED"
+    [ -f "$IDENTITY" ] || die "no identity key at $IDENTITY"
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+    age -d -i "$IDENTITY" -o "$PLAINTEXT" "$ENCRYPTED"
+    chmod 600 "$PLAINTEXT"
+    echo "decrypted $ENCRYPTED -> $PLAINTEXT"
+    ;;
+*)
+    echo "usage: ${0##*/} {encrypt|decrypt}" >&2
+    exit 2
+    ;;
+esac
