@@ -1,2 +1,7 @@
 [font]
 normal = { family = "Fira Code Nerd Font", style = "Regular" }
+
+[[keyboard.bindings]]
+key = "Return"
+mods = "Shift"
+chars = "\u001B\r"
