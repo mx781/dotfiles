@@ -1,0 +1,118 @@
+---
+# Debian's packaged NVIDIA driver, configured for PRIME render offload:
+# the Intel iGPU keeps driving every display and the discrete GPU stays
+# powered down until a client is launched through `prime-run`.
+
+- name: Detect an NVIDIA display controller
+  ansible.builtin.shell:
+    executable: /bin/sh
+    cmd: |
+      for device in /sys/bus/pci/devices/*; do
+        [ "$(cat "$device/vendor")" = 0x10de ] || continue
+        case "$(cat "$device/class")" in 0x0300*) exit 0 ;; esac
+      done
+      exit 1
+  register: p1_nvidia_present
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Report a machine without an NVIDIA GPU
+  ansible.builtin.debug:
+    msg: No NVIDIA display controller found; skipping the NVIDIA driver stage.
+  when: p1_nvidia_present.rc != 0
+
+- name: Install and configure the NVIDIA driver
+  when: p1_nvidia_present.rc == 0
+  block:
+    # linux-headers-amd64 tracks linux-image-amd64, so DKMS can rebuild the
+    # module for every future kernel. Recommends are disabled to keep
+    # nvidia-persistenced out: persistence mode holds the GPU awake and
+    # defeats the runtime power management configured below.
+    - name: Install the NVIDIA driver and matching kernel headers
+      ansible.builtin.apt:
+        name:
+          - libnvidia-cfg1
+          - linux-headers-amd64
+          - nvidia-driver
+          - nvidia-settings
+          - nvidia-smi
+          - nvidia-suspend-common
+          - nvidia-vulkan-icd
+        state: present
+        install_recommends: false
+        update_cache: true
+
+    - name: Configure NVIDIA kernel module options
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/p1-nvidia.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1.
+          # DRM kernel mode setting registers the nvidia-drm device that the
+          # Xorg OutputClass below matches on; without it Xorg never picks up
+          # the discrete GPU as an offload provider.
+          options nvidia-drm modeset=1
+          # RTD3 runtime power management. Lets the discrete GPU reach D3cold
+          # while no offloaded client is running. Set this to 0x00 if the
+          # machine misbehaves on resume.
+          options nvidia NVreg_DynamicPowerManagement=0x02
+      notify: Update the initramfs
+
+    - name: Allow runtime power management for the discrete GPU
+      ansible.builtin.copy:
+        dest: /etc/udev/rules.d/80-p1-nvidia-pm.rules
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1. Hand the NVIDIA VGA (0x030000) and 3D (0x030200)
+          # PCI functions to the kernel's runtime PM once the driver binds.
+          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="auto"
+          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="auto"
+          ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="on"
+          ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"
+
+    # Debian ships this snippet as /etc/nvidia/current/nvidia-drm-outputclass.conf
+    # but never places it anywhere Xorg reads, so P1 installs its own copy.
+    # AllowEmptyInitialConfiguration lets the NVIDIA GPU screen start with no
+    # connected outputs, which is the normal state under render offload.
+    - name: Add the NVIDIA GPU as a secondary Xorg screen
+      ansible.builtin.copy:
+        dest: /etc/X11/xorg.conf.d/10-p1-nvidia-offload.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1.
+          Section "OutputClass"
+              Identifier     "nvidia"
+              MatchDriver    "nvidia-drm"
+              Driver         "nvidia"
+              Option         "AllowEmptyInitialConfiguration"
+          EndSection
+
+    - name: Install the prime-run offload wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/prime-run
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          # Managed by P1. Run one client on the discrete NVIDIA GPU.
+          export __NV_PRIME_RENDER_OFFLOAD=1
+          export __GLX_VENDOR_LIBRARY_NAME=nvidia
+          export __VK_LAYER_NV_optimus=NVIDIA_only
+          exec "$@"
+
+    - name: Enable the NVIDIA suspend and resume services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+      loop:
+        - nvidia-suspend.service
+        - nvidia-resume.service
+        - nvidia-hibernate.service

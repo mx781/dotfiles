@@ -1,0 +1,4 @@
+---
+- name: Update the initramfs
+  ansible.builtin.command:
+    cmd: update-initramfs -u -k all

@@ -43,6 +43,8 @@
   roles:
     - role: base
       tags: [base]
+    - role: nvidia
+      tags: [nvidia]
     - role: desktop
       tags: [desktop]
     - role: developer

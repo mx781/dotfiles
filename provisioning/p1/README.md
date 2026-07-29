@@ -53,10 +53,51 @@ before applying P1. The principal user—not root—therefore owns all dotfiles
 and user-level tooling.
 
 The bootstrapper installs Ansible from Debian and applies this playbook locally.
-P1 covers the desktop, Docker, Node 24.2.0, uv/Python 3.12, Rust, Blender,
+P1 covers the desktop, the NVIDIA driver, Docker, Node 24.2.0, uv/Python 3.12, Rust, Blender,
 Brave, Chromium, Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack.
 It uses the vendors' signed APT repositories where available and versioned
 upstream archives for Blender, Telegram, Fira Code Nerd Font, and Slack.
+
+## NVIDIA driver and PRIME render offload
+
+The `nvidia` stage is a no-op on machines without an NVIDIA display
+controller. Where one is present it installs Debian's packaged
+`nvidia-driver` (550.163.01 in trixie) together with `linux-headers-amd64`,
+so DKMS rebuilds the module for every future kernel.
+
+The GPU is configured for PRIME render offload rather than as the primary
+display device. The Intel iGPU keeps driving every screen through the
+`modesetting` driver; the discrete GPU is added as a secondary Xorg screen and
+stays in RTD3 runtime suspend until something asks for it:
+
+```sh
+prime-run glxinfo | grep 'OpenGL renderer'
+prime-run blender
+```
+
+CUDA and `nvidia-smi` work without the wrapper. Waking the GPU from D3cold
+costs roughly a second on the first offloaded frame.
+
+`nvidia-persistenced` is deliberately not installed: persistence mode holds
+the GPU awake and defeats runtime power management. If the machine misbehaves
+on resume, set `options nvidia NVreg_DynamicPowerManagement=0x00` in
+`/etc/modprobe.d/p1-nvidia.conf` and rerun `update-initramfs -u -k all`.
+
+Displays wired to the discrete GPU (on this chassis, HDMI) need a one-time
+provider hookup per X session before `xrandr` will list their outputs:
+
+```sh
+xrandr --setprovideroutputsource NVIDIA-G0 modesetting
+```
+
+Re-run only this stage with:
+
+```sh
+ansible-playbook site.yml --ask-become-pass --tags nvidia
+```
+
+Changing the module options requires a reboot, because `nouveau` is
+blacklisted from the initramfs at install time.
 
 `startx` reads `~/.xinitrc`; P1 links that file to the repository's
 `.xsession`, which starts XMonad.  P1 installs the packaged XMonad dependencies
