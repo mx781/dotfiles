@@ -230,7 +230,8 @@ myDzenGeometry = "/home/maksis/scripts/dzen-geometry"
 myMenuColors = "-nb '" ++ themeBackground ++ "' -nf '" ++ themeForeground ++ "' -sb '" ++ themeAccent ++ "' -sf '" ++ themeBackground ++ "'"
 myXmonadBar = "dzen2 -dock $(" ++ myDzenGeometry ++ " workspace) -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
 myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock $(" ++ myDzenGeometry ++ " status) -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "'"
-myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x101E00 --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
+-- trayer wants 0xRRGGBB, the palette stores #rrggbb.
+myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x" ++ drop 1 themeBackground ++ " --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
 myStartup = do
   spawn myTrayer
