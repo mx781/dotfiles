@@ -43,6 +43,8 @@
   roles:
     - role: base
       tags: [base]
+    - role: storage
+      tags: [storage]
     - role: nvidia
       tags: [nvidia]
     - role: desktop

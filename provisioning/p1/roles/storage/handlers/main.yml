@@ -1,0 +1,11 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+# mdmonitor.service re-reads mdadm.conf only at start.
+- name: Restart mdadm monitoring
+  ansible.builtin.systemd_service:
+    name: mdmonitor.service
+    state: restarted
+  failed_when: false

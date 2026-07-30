@@ -91,6 +91,7 @@
       - conky-std
       - curl
       - dmenu
+      - dunst
       - ffmpeg
       - feh
       - fontconfig

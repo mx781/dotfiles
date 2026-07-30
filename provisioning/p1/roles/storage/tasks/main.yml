@@ -1,0 +1,173 @@
+---
+# Storage health alerting. Both mdadm --monitor and smartd default to mailing
+# root, and P1 installs no MTA, so every alert they raise is discarded. These
+# tasks point both at one script that reaches the journal, any logged-in
+# terminal, and the desktop session instead.
+
+- name: Install storage monitoring packages
+  ansible.builtin.apt:
+    name:
+      - libnotify-bin
+      - mdadm
+      - smartmontools
+    state: present
+    install_recommends: false
+
+- name: Install the storage alert fan-out script
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/p1-storage-alert
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      # Managed by P1. Invoked two ways:
+      #   mdadm --monitor PROGRAM:  $1=event $2=array [$3=component]
+      #   smartd run.d hook:        SMARTD_* set in the environment
+      set -u
+
+      if [ -n "${SMARTD_MESSAGE:-}" ]; then
+          subject="SMART: ${SMARTD_DEVICE:-unknown device}"
+          body="$SMARTD_MESSAGE"
+          urgent=yes
+      else
+          event=${1:-UnknownEvent}
+          array=${2:-unknown array}
+          component=${3:-}
+          subject="RAID: $event on $array"
+          body="mdadm reported $event on $array${component:+ (component $component)}"
+          # Everything else mdadm emits is routine progress chatter.
+          case "$event" in
+              Fail|FailSpare|DegradedArray|DeviceDisappeared|SparesMissing|TestMessage)
+                  urgent=yes ;;
+              *)
+                  urgent=no ;;
+          esac
+      fi
+
+      if [ "$urgent" != yes ]; then
+          logger -t p1-storage-alert -p daemon.notice "$subject -- $body"
+          exit 0
+      fi
+
+      logger -t p1-storage-alert -p daemon.err "$subject -- $body"
+      printf '%s\n%s\n' "$subject" "$body" | wall -n 2>/dev/null || true
+
+      # Best effort: there may be no graphical session. Never fail the alert
+      # over it, but always say why, so a silent desktop is diagnosable.
+      if [ ! -S /run/user/{{ getent_passwd[target_user][1] }}/bus ]; then
+          logger -t p1-storage-alert -p daemon.warning \
+              "no desktop notification: {{ target_user }} has no session bus"
+      elif ! command -v notify-send >/dev/null 2>&1; then
+          logger -t p1-storage-alert -p daemon.warning \
+              "no desktop notification: notify-send is not installed"
+      else
+          display=$(ls /tmp/.X11-unix 2>/dev/null | head -n1 | sed 's/^X/:/')
+          if ! notify_err=$(runuser -u {{ target_user }} -- env \
+                  DISPLAY="${display:-:0}" \
+                  DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/{{ getent_passwd[target_user][1] }}/bus" \
+                  notify-send -u critical "$subject" "$body" 2>&1); then
+              logger -t p1-storage-alert -p daemon.warning \
+                  "desktop notification failed: ${notify_err:-unknown error}"
+          fi
+      fi
+
+- name: Route mdadm monitoring at the alert script
+  ansible.builtin.lineinfile:
+    path: /etc/mdadm/mdadm.conf
+    regexp: '^\s*PROGRAM\s'
+    line: PROGRAM /usr/local/sbin/p1-storage-alert
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart mdadm monitoring
+
+- name: Route smartd at the alert script
+  ansible.builtin.copy:
+    dest: /etc/smartmontools/run.d/20p1-alert
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/bin/sh -e
+      # Managed by P1. run-parts --lsbsysinit requires a dotless filename.
+      exec /usr/local/sbin/p1-storage-alert
+
+- name: Enable SMART monitoring
+  ansible.builtin.systemd_service:
+    name: smartmontools.service
+    enabled: true
+    state: started
+
+# mdmonitor.service is static and udev-activated, so it cannot be enabled.
+# This timer is the safety net for the case where it is not running at all,
+# which is precisely the failure mode that leaves a degraded array silent.
+- name: Install the degraded array check
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/p1-array-check
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      # Managed by P1. Alert on any array that is degraded and not rebuilding.
+      set -u
+      for array in /dev/md[0-9]*; do
+          [ -b "$array" ] || continue
+          state=$(mdadm --detail "$array" 2>/dev/null | sed -n 's/^ *State : *//p')
+          case "$state" in
+              *degraded*)
+                  case "$state" in
+                      *recovering*|*resyncing*)
+                          logger -t p1-array-check -p daemon.notice \
+                              "$array rebuilding: $state" ;;
+                      *)
+                          /usr/local/sbin/p1-storage-alert DegradedArray "$array" ;;
+                  esac
+                  ;;
+          esac
+      done
+
+- name: Install the degraded array check service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/p1-array-check.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=P1 degraded MD array check
+      ConditionPathExists=/proc/mdstat
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/p1-array-check
+  notify: Reload systemd
+
+- name: Install the degraded array check timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/p1-array-check.timer
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Run the P1 degraded MD array check
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=1h
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+  notify: Reload systemd
+
+- name: Flush handlers before enabling the timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the degraded array check timer
+  ansible.builtin.systemd_service:
+    name: p1-array-check.timer
+    enabled: true
+    state: started

@@ -58,6 +58,45 @@ Brave, Chromium, Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack.
 It uses the vendors' signed APT repositories where available and versioned
 upstream archives for Blender, Telegram, Fira Code Nerd Font, and Slack.
 
+## Storage health alerting
+
+Both `mdadm --monitor` and `smartd` default to mailing root, and P1 installs no
+MTA, so out of the box every storage alert they raise is discarded. A degraded
+array can then sit unnoticed indefinitely.
+
+The `storage` stage points both at `/usr/local/sbin/p1-storage-alert`, which
+fans out to three places that need no mail configuration:
+
+- the journal, tagged `p1-storage-alert` at `daemon.err`;
+- `wall`, so any open terminal shows it; and
+- `notify-send` into the principal user's X session, best effort.
+
+`mdadm` reaches it through `PROGRAM` in `/etc/mdadm/mdadm.conf`, and `smartd`
+through `/etc/smartmontools/run.d/20p1-alert`. Routine mdadm progress events
+are logged at `notice` and go no further; only `Fail`, `FailSpare`,
+`DegradedArray`, `DeviceDisappeared` and `SparesMissing` raise the alarm.
+
+`mdmonitor.service` is static and udev-activated, so it cannot be enabled and
+will not restart if it dies. `p1-array-check.timer` covers that case: hourly,
+plus five minutes after boot, it alerts on any array that is degraded and not
+currently rebuilding.
+
+Verify the whole chain end to end — this emits a real `TestMessage` alert:
+
+```sh
+sudo mdadm --monitor --scan --test --oneshot
+journalctl -t p1-storage-alert -n 10
+```
+
+A failed member is never re-added automatically. `mdadm` records the failure in
+the array metadata and auto-assembly deliberately leaves that device out on the
+next boot, so recovery is always manual:
+
+```sh
+cat /proc/mdstat
+sudo mdadm /dev/md0 --add /dev/nvme0n1p2
+```
+
 ## NVIDIA driver and PRIME render offload
 
 The `nvidia` stage is a no-op on machines without an NVIDIA display

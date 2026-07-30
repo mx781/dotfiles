@@ -9,4 +9,9 @@ mkdir -p "$CM_DIR"
 chmod 700 "$CM_DIR"
 clipmenud &
 
+# Notification daemon behind notify-send, which the P1 storage alerts use.
+# D-Bus would activate it through the systemd user manager, which cannot see
+# DISPLAY here for the same reason as clipmenud, so start it from the session.
+dunst &
+
 exec xmonad
