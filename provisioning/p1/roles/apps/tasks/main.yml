@@ -52,14 +52,6 @@
       Architectures: amd64 arm64 armhf
       Signed-By: /usr/share/keyrings/gopass-archive-keyring.gpg
 
-# The Slack .deb used to add this Packagecloud source itself.  Its signing key
-# uses SHA-1, which Debian 13 rejects, making every later APT run fail.  Slack
-# is deliberately installed from its downloaded .deb below instead.
-- name: Remove obsolete Slack Packagecloud repository
-  ansible.builtin.file:
-    path: /etc/apt/sources.list.d/slack.list
-    state: absent
-
 - name: Install desktop applications from APT
   ansible.builtin.apt:
     name:
@@ -101,6 +93,7 @@
   ansible.builtin.apt:
     deb: /var/cache/p1-slack.deb
 
+# Slack's postinst re-adds the repository the base role already removed.
 - name: Keep Slack's obsolete Packagecloud repository disabled
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/slack.list

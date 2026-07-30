@@ -1,4 +1,15 @@
 ---
+# The Slack .deb's postinst adds this Packagecloud source itself (the apps
+# role reinstates the removal after each Slack install for that reason). Its
+# signing key uses SHA-1, which Debian 13's apt rejects outright, so a leftover
+# copy from any earlier run breaks every apt cache update that follows -
+# including this role's own, which is the very first one in the play. Remove
+# it here, ahead of any update_cache, regardless of which tags are requested.
+- name: Remove obsolete Slack Packagecloud repository
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/slack.list
+    state: absent
+
 - name: Remove installer CD-only APT source
   ansible.builtin.file:
     path: /etc/apt/sources.list
