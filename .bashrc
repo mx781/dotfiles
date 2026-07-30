@@ -133,9 +133,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 
-# export GOOGLE_APPLICATION_CREDENTIALS="/home/maksis/secrets/atrocity-management-f137aa5ac8f2.json"
-# export TF_VAR_terraform_state_encryption_key="$(cat /home/maksis/secrets/tfstate_secret.key)"
-
 if command -v yarn >/dev/null 2>&1; then
     export PATH="$(yarn global bin):$PATH"
 fi

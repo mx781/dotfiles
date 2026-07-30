@@ -1,9 +1,0 @@
-[Unit]
-Description=Sync rpool to zfs.rent
-Requires=zfs.target sanoid.service
-After=zfs.target sanoid.service
-ConditionFileNotEmpty=/etc/sanoid/sanoid.conf
-[Service]
-Environment=TZ=UTC
-Type=oneshot
-ExecStart=/usr/sbin/syncoid --skip-parent --recursive rpool root@mx.zfs.rent:rpool
