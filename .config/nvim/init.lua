@@ -83,6 +83,10 @@ end, {})
 require("fzf-lua").setup({})
 
 require('leap').add_default_mappings()
+-- leap maps x/X in visual mode to leap-till motions, clobbering the
+-- standard "select + x = delete selection" behavior; restore it.
+vim.keymap.del('x', 'x')
+vim.keymap.del('x', 'X')
 require('leap').opts.special_keys.prev_target = '<bs>'
 require('leap').opts.special_keys.prev_group = '<bs>'
 -- require('leap.user').set_repeat_keys('<cr>', '<bs>')
