@@ -100,22 +100,3 @@ if vim.fn.isdirectory(vim.fn.expand('~/hub/knowledge')) == 1 then
     end
   })
 end
-
-
-require('avante').setup({
-    provider = "openai",
-    openai = {
-        model = "o4-mini", 
-        timeout = 180000, -- Timeout in milliseconds, increase this for reasoning models
-        -- temperature = 0,
-        -- max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-        --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
-    },
-    windows = {
-        ask = {
-            floating = true,
-            border = "rounded",
-            start_insert = true,
-        },
-    }
-})

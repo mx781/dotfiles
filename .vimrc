@@ -113,24 +113,11 @@ call plug#begin()
     Plug 'L3MON4D3/LuaSnip'
     " Plug 'VonHeikemen/lsp-zero.nvim', {'branch': 'v3.x'}
 
-    " Plug 'github/copilot.vim'
-
-    ""Avante
-    """Deps
-    " Plug 'nvim-treesitter/nvim-treesitter'
-    Plug 'stevearc/dressing.nvim'
-    " Plug 'nvim-lua/plenary.nvim'
-    Plug 'MunifTanjim/nui.nvim'
-    Plug 'MeanderingProgrammer/render-markdown.nvim'
-
     """Optional deps
     " Plug 'hrsh7th/nvim-cmp'
     Plug 'nvim-tree/nvim-web-devicons' "or Plug 'echasnovski/mini.icons'
     Plug 'HakonHarnes/img-clip.nvim'
     " Plug 'zbirenbaum/copilot.lua'
-
-    """Yay, pass source=true if you want to build from source
-    Plug 'yetone/avante.nvim', { 'branch': 'main', 'do': 'make' }
 
     "Refactoring
     " Plug 'python-rope/ropevim'
