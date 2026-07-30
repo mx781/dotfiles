@@ -14,6 +14,8 @@ set hidden
 nmap <C-A-n> :enew<CR>
 nnoremap <leader>b :ls<cr>:b<space>
 tnoremap <Esc> <C-\><C-n>
+" F1 in terminal code = ESC for apps that need it
+tnoremap <F1> <Esc>
 " F1 is always a typo for esc
 inoremap <F1> <Esc>
 
