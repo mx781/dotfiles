@@ -47,6 +47,8 @@
       tags: [storage]
     - role: nvidia
       tags: [nvidia]
+    - role: drivers
+      tags: [drivers]
     - role: desktop
       tags: [desktop]
     - role: developer

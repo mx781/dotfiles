@@ -1,0 +1,12 @@
+---
+# Hardware-enablement packages that a stock Debian install omits and that no
+# other stage naturally owns. Currently: the PipeWire BlueZ plugin. Without
+# it, WirePlumber has no Bluetooth audio backend, pairing still succeeds, and
+# every profile connection then fails with
+# `org.bluez.Error.Failed br-connection-profile-unavailable`.
+
+- name: Install the PipeWire BlueZ plugin
+  ansible.builtin.apt:
+    name: libspa-0.2-bluetooth
+    state: present
+    install_recommends: false

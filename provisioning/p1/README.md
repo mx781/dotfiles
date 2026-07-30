@@ -97,6 +97,34 @@ cat /proc/mdstat
 sudo mdadm /dev/md0 --add /dev/nvme0n1p2
 ```
 
+## Drivers stage: hardware-enablement gaps
+
+The `drivers` stage is a home for packages a stock Debian install omits that
+no other stage naturally owns — small, easy to lose track of, but each one
+breaks a whole class of hardware if missing.
+
+Currently it installs `libspa-0.2-bluetooth`, the PipeWire BlueZ plugin.
+Without it, WirePlumber has no Bluetooth audio backend: `bluetooth.service`
+runs, pairing succeeds, and every profile connection then fails with
+
+```
+org.bluez.Error.Failed br-connection-profile-unavailable
+```
+
+`journalctl --user -u wireplumber -b | grep -i bluez` confirms it —
+`api.bluez5.enum.dbus` fails to load. Debian's PipeWire package only
+`Recommends` this plugin rather than depending on it, and a minimal install
+skips Recommends, so a fresh P1 machine hits this on the first Bluetooth
+audio device it tries to connect.
+
+Re-run just this stage, then restart the user session's audio services to
+pick it up without a reboot:
+
+```sh
+ansible-playbook site.yml --ask-become-pass --tags drivers
+systemctl --user restart wireplumber pipewire pipewire-pulse
+```
+
 ## NVIDIA driver and PRIME render offload
 
 The `nvidia` stage is a no-op on machines without an NVIDIA display
