@@ -113,6 +113,7 @@
       - ripgrep
       - rsync
       - scrot
+      - tlp
       - tmux
       - unzip
       - wget
@@ -137,6 +138,12 @@
   ansible.builtin.systemd_service:
     name: bluetooth.service
     enabled: true
+
+- name: Enable TLP power management
+  ansible.builtin.systemd_service:
+    name: tlp.service
+    enabled: true
+    state: started
 
 - name: Check for the P1 encrypted-root swapfile
   ansible.builtin.stat:
