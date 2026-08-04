@@ -7,6 +7,13 @@
 export CM_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/clipmenu"
 mkdir -p "$CM_DIR"
 chmod 700 "$CM_DIR"
+# Only track the clipboard selection, not primary. Alacritty and other
+# terminals own the primary selection themselves for select-to-copy /
+# middle-click paste; clipmenud polling and re-claiming primary too races
+# with that and makes Alacritty fail to store selections in PRIMARY
+# ("Unable to store text in clipboard: Failed to set new owner of XCB
+# selection [X]").
+export CM_SELECTIONS="clipboard"
 clipmenud &
 
 # Notification daemon behind notify-send, which the P1 storage alerts use.
