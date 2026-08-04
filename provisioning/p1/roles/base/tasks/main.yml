@@ -106,6 +106,7 @@
       - pavucontrol
       - pinentry-qt
       - pipewire
+      - pipewire-alsa
       - pipewire-pulse
       - powertop
       - psmisc
