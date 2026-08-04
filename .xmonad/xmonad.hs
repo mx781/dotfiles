@@ -35,6 +35,8 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run(spawnPipe)
 import XMonad.Util.Dzen
+import XMonad.Util.Brightness (change)
+import Graphics.X11.ExtraTypes.XF86 (xF86XK_MonBrightnessUp, xF86XK_MonBrightnessDown)
 import Theme
 
 import System.IO
@@ -43,6 +45,7 @@ import Data.Monoid
 
 import qualified XMonad.StackSet as S
 import qualified Data.Map as M
+import qualified Data.ByteString.Char8 as BS
  
 myTerminal = "alacritty"
 colorNormalBorder   = themeBorderNormal
@@ -59,6 +62,21 @@ myLayout = lessBorders OnlyScreenFloat $ avoidStruts $ smartBorders $ tiled ||| 
 
 altMask = mod1Mask
 winMask = mod4Mask
+
+-- ~5% of max_brightness (intel_backlight tops out around 24242 on the P1)
+brightnessStep = 1200
+
+brightnessFile = "/sys/class/backlight/intel_backlight/brightness"
+
+-- Applies f to the current brightness via XMonad.Util.Brightness (which uses
+-- strict ByteString IO so the read handle closes before it writes back), then
+-- does a separate strict read afterwards to report the resulting value for
+-- the dzen alert.
+adjustBrightness :: (Int -> Int) -> IO Int
+adjustBrightness f = do
+  _ <- change f
+  contents <- BS.readFile brightnessFile
+  return (read (BS.unpack contents))
 
 myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $ 
     [ 
@@ -114,9 +132,12 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
 
 
   , ((0, 0xffc8), lowerVolume 4 >>= alert)
-  , ((0, 0xffc9), raiseVolume 4 >>= alert) 
+  , ((0, 0xffc9), raiseVolume 4 >>= alert)
   , ((winMask, xK_Left), lowerVolume 4 >>= alert)
-  , ((winMask, xK_Right), raiseVolume 4 >>= alert)  
+  , ((winMask, xK_Right), raiseVolume 4 >>= alert)
+
+  , ((0, xF86XK_MonBrightnessUp), liftIO (adjustBrightness (+ brightnessStep)) >>= alert)
+  , ((0, xF86XK_MonBrightnessDown), liftIO (adjustBrightness (subtract brightnessStep)) >>= alert)
 
   -- Programs (alt)
   , ((winMask, xK_t), spawn myTerminal)
@@ -130,6 +151,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , (f, m) <- [(S.greedyView, 0), (S.shift, altMask)]
     ]
     where
+  alert :: Show a => a -> X ()
   alert = dzenConfig return . show
 
 myMouseBindings (XConfig {XMonad.modMask = winMask}) = M.fromList $

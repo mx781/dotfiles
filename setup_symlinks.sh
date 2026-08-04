@@ -17,3 +17,7 @@ ln -s $(pwd)/Pictures/bg-karina-skrypnik.jpg $HOME/Pictures/bg-karina-skrypnik.j
 
 sudo mkdir -p /usr/share/X11/xkb/symbols
 sudo ln -s $(pwd)/usr/share/X11/xkb/symbols/lv_pok3r_p1 /usr/share/X11/xkb/symbols/lv_pok3r_p1
+
+sudo ln -sf $(pwd)/etc/udev/rules.d/90-backlight.rules /etc/udev/rules.d/90-backlight.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=backlight

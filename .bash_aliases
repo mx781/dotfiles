@@ -46,7 +46,7 @@ alias reset-xserver="sudo systemctl restart display-manager"
 
 ## brightness
 brightness() {
-    echo $1 | sudo tee /sys/class/backlight/intel_backlight/brightness
+    echo $1 > /sys/class/backlight/intel_backlight/brightness
 }
 
 ## mandratek
