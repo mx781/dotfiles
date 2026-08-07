@@ -39,6 +39,31 @@
     - image/gif
   changed_when: false
 
+- name: Install xinput for runtime pointer device tuning
+  ansible.builtin.apt:
+    name: xinput
+    state: present
+    update_cache: true
+
+# libinput's AccelSpeed is a normalised -1 (slowest) .. 1 (fastest) slider
+# around a neutral 0, not a linear multiplier, so "50% more sensitive" is
+# taken as 0.5: halfway from neutral to the maximum.
+- name: Raise mouse pointer sensitivity 50% via libinput accel speed
+  ansible.builtin.copy:
+    dest: /etc/X11/xorg.conf.d/50-p1-mouse-accel.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by P1.
+      Section "InputClass"
+          Identifier "libinput pointer acceleration"
+          MatchIsPointer "on"
+          MatchDevicePath "/dev/input/event*"
+          Driver "libinput"
+          Option "AccelSpeed" "0.5"
+      EndSection
+
 - name: Create the vim-plug destination directory
   ansible.builtin.file:
     path: "{{ target_home }}/.local/share/nvim/site/autoload"
