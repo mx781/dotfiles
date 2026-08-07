@@ -361,6 +361,8 @@ nnoremap <silent> <leader>rr :call RunInSidePanel()<CR>
 
 
 ""Mini-plugins
+"""trim whitespace
+xnoremap <leader>tw :<C-u>keeppatterns '<,'>s/^\s*\(.\{-}\)\s*$/\1/e<CR>gv
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
 :command! -range Decrypt :'<,'>!gpg -dq
 

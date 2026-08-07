@@ -99,6 +99,9 @@ if vim.fn.isdirectory(vim.fn.expand('~/hub/knowledge')) == 1 then
     },
     follow_img_func = function(img)
       vim.fn.jobstart({"xdg-open", img})
+    end,
+    follow_url_func = function(url)
+      vim.fn.jobstart({"xdg-open", url})
     end
   })
 end
