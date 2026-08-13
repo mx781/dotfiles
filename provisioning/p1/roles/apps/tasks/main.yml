@@ -52,12 +52,22 @@
       Architectures: amd64 arm64 armhf
       Signed-By: /usr/share/keyrings/gopass-archive-keyring.gpg
 
+- name: Install Tailscale signing key and repository definition
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { url: "https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.noarmor.gpg", dest: /usr/share/keyrings/tailscale-archive-keyring.gpg }
+    - { url: "https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.tailscale-keyring.list", dest: /etc/apt/sources.list.d/tailscale.list }
+
 - name: Install desktop applications from APT
   ansible.builtin.apt:
     name:
       - brave-browser
       - chromium
       - firefox
+      - freerdp3-x11
       - gopass
       - gopass-archive-keyring
       - libreoffice
