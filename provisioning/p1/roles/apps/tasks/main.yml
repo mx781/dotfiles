@@ -61,6 +61,8 @@
       - gopass
       - gopass-archive-keyring
       - libreoffice
+      - redshift
+      - tailscale
     state: present
     update_cache: true
 
