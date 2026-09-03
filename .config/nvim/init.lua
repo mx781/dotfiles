@@ -91,12 +91,22 @@ require('leap').opts.special_keys.prev_target = '<bs>'
 require('leap').opts.special_keys.prev_group = '<bs>'
 -- require('leap.user').set_repeat_keys('<cr>', '<bs>')
 
+local obsidian_workspaces = {}
 if vim.fn.isdirectory(vim.fn.expand('~/hub/knowledge')) == 1 then
+  table.insert(obsidian_workspaces, {
+    name = "knowledge",
+    path = "~/hub/knowledge",
+  })
+end
+
+local local_workspaces_path = vim.fn.expand('~/hub/dotfiles/local/nvim_workspaces.lua')
+if vim.fn.filereadable(local_workspaces_path) == 1 then
+  vim.list_extend(obsidian_workspaces, dofile(local_workspaces_path))
+end
+
+if #obsidian_workspaces > 0 then
   require("obsidian").setup({
-    workspaces = {
-      { name = "knowledge", path = "~/hub/knowledge" },
-      { name = "work", path = "~/hub/maxtor/vault" },
-    },
+    workspaces = obsidian_workspaces,
     follow_img_func = function(img)
       vim.fn.jobstart({"xdg-open", img})
     end,

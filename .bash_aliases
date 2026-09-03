@@ -58,3 +58,10 @@ alias knowledge="cd /home/maksis/hub/knowledge && nvim"
 alias olafa-nets="nmcli -p con up id olafs"
 alias ppp="PYTHONPATH=$(pwd) python"
 alias awake="dual && config-keyb && reset-bt"
+
+# Keep machine- and employer-specific aliases out of the public repository.
+local_aliases="$DOTFILES/local/bash_aliases"
+if [ -r "$local_aliases" ]; then
+    . "$local_aliases"
+fi
+unset local_aliases
