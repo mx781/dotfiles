@@ -2,7 +2,10 @@
 - name: Install XMonad build dependencies
   ansible.builtin.apt:
     name:
+      - autoconf
+      - automake
       - libxfixes-dev
+      - libxmu-dev
       - dzen2
       - haskell-stack
       - libasound2-dev
@@ -36,6 +39,28 @@
     dest: /usr/local/bin/clipnotify
     remote_src: true
     mode: '0755'
+
+# Debian's xclip 0.13 (2016) wedges forever once a requestor abandons an INCR
+# transfer, which clipmenud's `xsel -o` probe does for >1MB screenshots,
+# hanging later pastes. Fixed upstream in 6623ccd (2019) but never released.
+# /usr/local/bin shadows the Debian package installed by the base role.
+- name: Install Xclip from its pinned upstream revision
+  ansible.builtin.git:
+    repo: https://github.com/astrand/xclip.git
+    dest: /opt/xclip
+    version: 2c3b811002b35d3be7f39cc1145dd06bdb32e31c
+  register: xclip_source
+
+- name: Check for an installed Xclip build
+  ansible.builtin.stat:
+    path: /usr/local/bin/xclip
+  register: xclip_installed
+
+- name: Build and install Xclip
+  ansible.builtin.shell:
+    cmd: autoreconf -i && ./configure --prefix=/usr/local && make && make install
+    chdir: /opt/xclip
+  when: xclip_source.changed or not xclip_installed.stat.exists
 
 - name: Install Clipmenu from its pinned upstream revision
   ansible.builtin.git:

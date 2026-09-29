@@ -114,7 +114,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , ((winMask, xK_Return), spawn $ "dmenu_run -i " ++ myMenuColors ++ " -fn 'Fira Code'")
   , ((winMask, xK_v), spawn $ "clipmenu -i " ++ myMenuColors ++ " -fn 'Fira Code'")
   , ((0, xK_Print), spawn "scrot -q 95 '%Y-%m-%d_$wx$h.jpg' -e 'mv $f ~/Pictures/'")
-  , ((altMask, xK_Print), spawn "maim -s | tee \"/home/maksis/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png\" | ~/scripts/clip-image")
+  , ((altMask, xK_Print), spawn "maim -s | tee \"/home/maksis/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png\" | xclip -selection clipboard -t image/png -i")
   -- , ((winMask .|. altMask, xK_p), spawn "scrot -s -q 95 ~/Pictures/%Y-%m-%d_%H-%M-%S.jpg -e 'xclip -selection clipboard -t image/jpg -i $f'")
   , ((winMask, xK_bracketleft), sendMessage (IncMasterN 1))
   , ((winMask, xK_bracketright), sendMessage (IncMasterN (-1)))
