@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# Own the X clipboard with an image read from stdin, until someone else takes it.
+#
+# Replaces `xclip -selection clipboard -t image/png -i`. xclip 0.13 answers
+# *any* target with the image bytes, and once a requestor abandons an INCR
+# transfer (anything > ~1MB, e.g. photo-ish screenshots) it wedges forever:
+# every later request times out and the process never exits. clipmenud's
+# `xsel -o` probe triggers exactly that, which then hangs Telegram on paste.
+# GTK only serves image targets and tracks INCR transfers per requestor.
+#
+# CLIP_SELECTION=secondary targets the SECONDARY selection (for testing).
+import os
+import sys
+
+data = sys.stdin.buffer.read()
+if not data:  # maim -s cancelled
+    sys.exit(1)
+
+# Detach like xclip does; must happen before GTK opens the X connection.
+if os.fork():
+    sys.exit(0)
+os.setsid()
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GdkPixbuf, Gtk
+
+loader = GdkPixbuf.PixbufLoader()
+loader.write(data)
+loader.close()
+
+selection = Gdk.SELECTION_SECONDARY if os.environ.get("CLIP_SELECTION") == "secondary" else Gdk.SELECTION_CLIPBOARD
+clipboard = Gtk.Clipboard.get(selection)
+clipboard.set_image(loader.get_pixbuf())
+
+def on_owner_change(_clipboard, event):
+    if event.owner is None or event.owner.get_window_type() == Gdk.WindowType.FOREIGN:
+        Gtk.main_quit()
+
+clipboard.connect("owner-change", on_owner_change)
+Gtk.main()
