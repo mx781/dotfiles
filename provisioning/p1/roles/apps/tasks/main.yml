@@ -78,6 +78,25 @@
     state: present
     update_cache: true
 
+- name: Enable and start tailscaled
+  ansible.builtin.systemd_service:
+    name: tailscaled
+    enabled: true
+    state: started
+
+# Note: "tailscale up" resets prefs that aren't passed as flags, so running
+# it without --operator=<user> silently wipes this setting. Authenticate with
+# "tailscale up --operator=<user>", or re-run this role to restore it.
+- name: Check current Tailscale operator
+  ansible.builtin.command: tailscale debug prefs
+  register: p1_tailscale_prefs
+  changed_when: false
+
+- name: Allow the main user to operate Tailscale without sudo
+  ansible.builtin.command: "tailscale set --operator={{ target_user }}"
+  when: (p1_tailscale_prefs.stdout | from_json).OperatorUser | default('') != target_user
+  changed_when: true
+
 - name: Download Telegram Desktop archive
   ansible.builtin.get_url:
     url: https://telegram.org/dl/desktop/linux
