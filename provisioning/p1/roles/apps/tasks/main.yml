@@ -97,6 +97,23 @@
   when: (p1_tailscale_prefs.stdout | from_json).OperatorUser | default('') != target_user
   changed_when: true
 
+# Debian's redshift AppArmor profile only allows reading the literal path
+# @{HOME}/.config/redshift.conf. Since that's a symlink into the dotfiles
+# checkout, AppArmor denies the read against the resolved target and
+# redshift silently falls back to its geoclue2 default instead of erroring.
+- name: Allow Redshift to read its dotfiles-managed config under AppArmor
+  ansible.builtin.copy:
+    dest: /etc/apparmor.d/local/usr.bin.redshift
+    mode: '0644'
+    content: |
+      owner @{HOME}/hub/dotfiles/.config/redshift.conf r,
+  register: p1_redshift_apparmor
+
+- name: Reload the Redshift AppArmor profile
+  ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/usr.bin.redshift
+  when: p1_redshift_apparmor.changed
+  changed_when: true
+
 - name: Download Telegram Desktop archive
   ansible.builtin.get_url:
     url: https://telegram.org/dl/desktop/linux
