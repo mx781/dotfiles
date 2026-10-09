@@ -8,3 +8,4 @@ provisioning/p1/test-results/
 .ssh/config
 # Machine-local bash aliases: internal hostnames, per-machine paths.
 .bash_aliases.private
+.claude/
