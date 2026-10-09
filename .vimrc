@@ -20,6 +20,16 @@ tnoremap <F1> <Esc>
 inoremap <F1> <Esc>
 
 set clipboard+=unnamedplus
+" Neovim prefers xsel over xclip for the clipboard provider, but xsel
+" advertises a DELETE target it cannot actually serve: handle_delete() calls
+" XChangeProperty() with format=0, which the X server rejects with BadValue.
+" xsel's error handler then exit(1)s, so any app that requests DELETE kills
+" the selection owner, drops the yanked text, and nvim reports
+" "clipboard: error invoking xsel: BadValue ...". xclip only advertises
+" TARGETS/UTF8_STRING and survives the same request, so pin the provider.
+if has('nvim')
+  let g:clipboard = 'xclip'
+endif
 inoremap <C-v> <C-o>:set paste<CR><C-r>+<C-o>:set paste!<CR>
 
 set shiftwidth=4 smarttab
