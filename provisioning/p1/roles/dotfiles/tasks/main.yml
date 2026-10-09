@@ -81,6 +81,24 @@
     state: link
     force: true
 
+# Setting the layout server-side rather than calling setxkbmap from the
+# session means Xorg compiles it once at startup and re-applies it to every
+# keyboard that appears later, so hotplugging an external board does not
+# silently fall back to the evdev default.
+- name: Make the custom layout the default for all keyboards
+  ansible.builtin.copy:
+    dest: /etc/X11/xorg.conf.d/50-p1-keyboard-layout.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by P1.
+      Section "InputClass"
+          Identifier "p1 keyboard layout"
+          MatchIsKeyboard "on"
+          Option "XkbLayout" "lv_pok3r_p1"
+      EndSection
+
 - name: Generate application theme adapters
   ansible.builtin.command: "{{ dotfiles_repo }}/scripts/theme apply"
   become_user: "{{ target_user }}"
