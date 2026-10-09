@@ -89,3 +89,11 @@ alias knowledge="cd /home/maksis/hub/knowledge && nvim"
 alias olafa-nets="nmcli -p con up id olafs"
 alias ppp="PYTHONPATH=$(pwd) python"
 alias awake="dual && config-keyb && reset-bt"
+
+## machine-local
+# Aliases that should not be committed: internal hostnames, per-machine paths,
+# anything credential-shaped. Gitignored, and sourced last so it can override
+# anything above. Missing on a fresh checkout, which is fine.
+if [ -f "$DOTFILES/.bash_aliases.private" ]; then
+    . "$DOTFILES/.bash_aliases.private"
+fi

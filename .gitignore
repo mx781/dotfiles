@@ -6,3 +6,5 @@ themes/selected.toml
 provisioning/p1/test-results/
 # Plaintext SSH config: only .ssh/config.age is committed.
 .ssh/config
+# Machine-local bash aliases: internal hostnames, per-machine paths.
+.bash_aliases.private
