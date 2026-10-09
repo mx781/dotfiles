@@ -49,6 +49,28 @@ brightness() {
     echo $1 > /sys/class/backlight/intel_backlight/brightness
 }
 
+## power
+# TLP owns the battery/AC profile and switches it automatically on every
+# power-source change; these wrap it for manual overrides and keep the
+# discrete GPU pinned awake in both modes. The GPU is pinned because every
+# D3cold resume blocks the X server for ~1.5s, which reads as the whole
+# desktop freezing for a second about once a minute.
+#   pmode           source, tlp profile, gpu state and draw
+#   ac / battery    force one profile until the next power change
+#   dgpu auto       hand the watts back, freezes and all (manual override)
+#   dgpu measure    what pinning actually costs, in watts
+pmode() {
+    "$DOTFILES/scripts/power-mode" "$@"
+}
+
+dgpu() {
+    "$DOTFILES/scripts/dgpu-power" "$@"
+}
+
+# Shadows the rarely-used `ac` from the acct package, which is not installed.
+alias ac="pmode ac"
+alias battery="pmode battery"
+
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
 alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate && source .env"

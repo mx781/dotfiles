@@ -2,3 +2,12 @@
 - name: Update the initramfs
   ansible.builtin.command:
     cmd: update-initramfs -u -k all
+
+- name: Restart TLP
+  ansible.builtin.systemd_service:
+    name: tlp.service
+    state: restarted
+
+- name: Reload udev rules
+  ansible.builtin.command:
+    cmd: udevadm control --reload
