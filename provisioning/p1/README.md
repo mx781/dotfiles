@@ -55,9 +55,9 @@ and user-level tooling.
 
 The bootstrapper installs Ansible from Debian and applies this playbook locally.
 P1 covers the desktop, the NVIDIA driver, Docker, Node 24.2.0, uv/Python 3.12, Rust, Blender,
-Brave, Chromium, Firefox, Gopass, LibreOffice, PCManFM, Telegram, and Slack.
+Brave, Chromium, Firefox, Gopass, LibreOffice, PCManFM, rclone, Telegram, and Slack.
 It uses the vendors' signed APT repositories where available and versioned
-upstream archives for Blender, Telegram, Fira Code Nerd Font, and Slack.
+upstream archives for Blender, Telegram, Fira Code Nerd Font, Slack, and rclone.
 
 ## Storage health alerting
 
