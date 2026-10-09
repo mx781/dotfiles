@@ -71,6 +71,15 @@ dgpu() {
 alias ac="pmode ac"
 alias battery="pmode battery"
 
+## provisioning
+# Runs from the playbook directory so ansible.cfg and inventory resolve, in a
+# subshell so the caller's cwd survives. Extra args pass straight through:
+#   provision --tags base
+#   provision --tags base,dotfiles --check
+provision() {
+    (cd "$DOTFILES/provisioning/p1" && ansible-playbook site.yml --ask-become-pass "$@")
+}
+
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
 alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate && source .env"
