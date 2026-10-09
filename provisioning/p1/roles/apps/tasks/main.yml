@@ -129,11 +129,17 @@
       CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"
       CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-sync"
 
+- name: Check whether Telegram Desktop is already installed
+  ansible.builtin.stat:
+    path: /opt/Telegram/Telegram
+  register: p1_telegram
+
 - name: Download Telegram Desktop archive
   ansible.builtin.get_url:
     url: https://telegram.org/dl/desktop/linux
     dest: /var/cache/p1-telegram.tar.xz
     mode: '0644'
+  when: not p1_telegram.stat.exists
 
 - name: Install Telegram Desktop
   ansible.builtin.unarchive:
