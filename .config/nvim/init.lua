@@ -1,5 +1,66 @@
 vim.cmd('source ~/.vimrc')
 
+-- Failsafe for huge files (e.g. minified single-line JSON): give them the
+-- 'bigfile' filetype so nothing filetype-driven (LSP, treesitter, copilot)
+-- ever attaches, then strip the per-buffer options that are expensive on one
+-- enormous line.
+local bigfile_bytes = 1024 * 1024 -- 1 MiB
+local bigfile_cols = 10000        -- chars in the first line
+
+vim.filetype.add({
+  pattern = {
+    ['.*'] = {
+      priority = math.huge,
+      function(path, buf)
+        if not path or not vim.api.nvim_buf_is_valid(buf) then return end
+        if vim.bo[buf].buftype ~= '' then return end
+        local size = vim.fn.getfsize(path)
+        if size < 0 then return end
+        if size > bigfile_bytes then return 'bigfile' end
+        -- Small overall, but can still be one pathological line.
+        local first = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]
+        if first and #first > bigfile_cols then return 'bigfile' end
+      end,
+    },
+  },
+})
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'bigfile',
+  callback = function(ev)
+    vim.b[ev.buf].bigfile = true
+    vim.b[ev.buf].matchparen_timeout = 10
+    vim.b[ev.buf].matchparen_insert_timeout = 10
+    vim.bo[ev.buf].swapfile = false
+    vim.bo[ev.buf].undofile = false
+    vim.bo[ev.buf].undolevels = -1
+    vim.bo[ev.buf].synmaxcol = 200
+    vim.api.nvim_buf_call(ev.buf, function()
+      vim.opt_local.foldmethod = 'manual'
+      vim.opt_local.foldexpr = ''
+      vim.opt_local.number = false
+      vim.opt_local.relativenumber = false
+      vim.opt_local.cursorline = false
+      vim.opt_local.colorcolumn = ''
+      vim.opt_local.signcolumn = 'no'
+      vim.opt_local.conceallevel = 0
+      vim.opt_local.spell = false
+      vim.opt_local.list = false
+      vim.opt_local.wrap = false
+    end)
+    -- Syntax is started after FileType, so turn it off on the next tick.
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(ev.buf) then
+        vim.bo[ev.buf].syntax = 'off'
+      end
+    end)
+    vim.notify(
+      ('bigfile: %s — syntax/LSP/folds disabled'):format(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(ev.buf), ':t')),
+      vim.log.levels.WARN
+    )
+  end,
+})
+
 local plugged = vim.fn.stdpath('data') .. '/plugged'
 for _, plugin in ipairs(vim.fn.readdir(plugged)) do
   vim.opt.runtimepath:append(plugged .. '/' .. plugin)
