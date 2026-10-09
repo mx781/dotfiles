@@ -96,10 +96,13 @@
       - feh
       - fontconfig
       - fonts-firacode
+      - fonts-noto-color-emoji
       - fzf
       - git
       - htop
       - maim
+      # Debian ships the traditional "cal" binary in ncal, not util-linux.
+      - ncal
       - ncdu
       - nnn
       - pcmanfm

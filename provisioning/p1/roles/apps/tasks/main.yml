@@ -71,6 +71,8 @@
       - gopass
       - gopass-archive-keyring
       - libreoffice
+      - poppler-utils
+      - qbittorrent
       - redshift
       - tailscale
     state: present
