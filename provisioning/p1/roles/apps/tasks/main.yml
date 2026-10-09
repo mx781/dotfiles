@@ -114,6 +114,21 @@
   when: p1_redshift_apparmor.changed
   changed_when: true
 
+# - Chromium's xdg-desktop-portal secret storage silently fails without a
+#   portal or GNOME/KDE session, so pin the keyless "basic" store instead.
+# - Chromium's AccountReconcilor calls Google's /Logout endpoint on every
+#   startup because no account is signed into the browser itself (only the
+#   website), which it treats as a mismatch to fix. --disable-sync turns
+#   off the identity service that drives this, confirmed via net-log
+#   capture across repeated restarts.
+- name: Work around Chromium session-cookie storage issues
+  ansible.builtin.copy:
+    dest: /etc/chromium.d/99-password-store
+    mode: '0644'
+    content: |
+      CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"
+      CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-sync"
+
 - name: Download Telegram Desktop archive
   ansible.builtin.get_url:
     url: https://telegram.org/dl/desktop/linux
