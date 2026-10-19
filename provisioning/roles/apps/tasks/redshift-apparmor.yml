@@ -1,0 +1,19 @@
+---
+- name: Check for the packaged Redshift AppArmor profile
+  ansible.builtin.stat:
+    path: /etc/apparmor.d/usr.bin.redshift
+  register: redshift_apparmor_profile
+
+# AppArmor checks the symlink target, not just ~/.config/redshift.conf.
+- name: Allow Redshift to read its configuration in the dotfiles checkout
+  ansible.builtin.blockinfile:
+    path: /etc/apparmor.d/local/usr.bin.redshift
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: '# {mark} ANSIBLE MANAGED REDSHIFT DOTFILES'
+    block: |
+      owner "{{ dotfiles_repo }}/.config/redshift.conf" r,
+  when: redshift_apparmor_profile.stat.exists
+  notify: Reload Redshift AppArmor profile

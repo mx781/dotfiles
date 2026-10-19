@@ -1,0 +1,190 @@
+---
+- name: Initialise dotfile submodules
+  ansible.builtin.command:
+    cmd: git submodule update --init --recursive
+    chdir: "{{ dotfiles_repo }}"
+  become_user: "{{ target_user }}"
+  changed_when: false
+
+- name: Create user configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  loop:
+    - "{{ target_home }}/.config/alacritty"
+    - "{{ target_home }}/.config/nvim"
+    - "{{ target_home }}/.config/shell"
+    - "{{ target_home }}/Pictures"
+
+- name: Create the user SSH directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.ssh"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0700'
+
+- name: Generate application theme adapters
+  ansible.builtin.command: >-
+    {{ dotfiles_repo }}/scripts/theme apply {{ workstation_theme }}
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Link user dotfiles
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: true
+    follow: false
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  loop:
+    - { src: "{{ dotfiles_repo }}/.vimrc", dest: "{{ target_home }}/.vimrc" }
+    - { src: "{{ dotfiles_repo }}/.bashrc", dest: "{{ target_home }}/.bashrc" }
+    - { src: "{{ dotfiles_repo }}/.bash_aliases", dest: "{{ target_home }}/.bash_aliases" }
+    - { src: "{{ dotfiles_repo }}/.xsession", dest: "{{ target_home }}/.xsession" }
+    - { src: "{{ dotfiles_repo }}/.xsession", dest: "{{ target_home }}/.xinitrc" }
+    - { src: "{{ dotfiles_repo }}/scripts", dest: "{{ target_home }}/scripts" }
+    - { src: "{{ dotfiles_repo }}/.config/feh", dest: "{{ target_home }}/.config/feh" }
+    - { src: "{{ dotfiles_repo }}/.xmonad", dest: "{{ target_home }}/.xmonad" }
+    - { src: "{{ dotfiles_repo }}/.config/alacritty/alacritty.toml", dest: "{{ target_home }}/.config/alacritty/alacritty.toml" }
+    - { src: "{{ dotfiles_repo }}/.config/redshift.conf", dest: "{{ target_home }}/.config/redshift.conf" }
+    - { src: "{{ dotfiles_repo }}/.config/shell/theme-prompt.sh", dest: "{{ target_home }}/.config/shell/theme-prompt.sh" }
+    - { src: "{{ dotfiles_repo }}/.config/nvim/init.lua", dest: "{{ target_home }}/.config/nvim/init.lua" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-mandra.jpg", dest: "{{ target_home }}/Pictures/bg-mandra.jpg" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-rust.jpg", dest: "{{ target_home }}/Pictures/bg-rust.jpg" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-kristaps-ungurs.jpg", dest: "{{ target_home }}/Pictures/bg-kristaps-ungurs.jpg" }
+    - { src: "{{ dotfiles_repo }}/Pictures/bg-karina-skrypnik.jpg", dest: "{{ target_home }}/Pictures/bg-karina-skrypnik.jpg" }
+
+- name: Inspect the user screen-layout path
+  ansible.builtin.stat:
+    path: "{{ target_home }}/.screenlayout"
+    follow: false
+  register: workstation_screenlayout
+
+- name: Refuse to replace a non-directory screen-layout path
+  ansible.builtin.assert:
+    that: >-
+      not workstation_screenlayout.stat.exists or
+      workstation_screenlayout.stat.isdir or
+      workstation_screenlayout.stat.islnk
+    fail_msg: >-
+      {{ target_home }}/.screenlayout exists but is neither a directory nor a
+      symlink. Move it aside before rerunning the dotfiles role.
+
+- name: Create the user screen-layout directory when absent
+  ansible.builtin.file:
+    path: "{{ target_home }}/.screenlayout"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: not workstation_screenlayout.stat.exists
+
+- name: Find repository screen layouts
+  ansible.builtin.find:
+    paths: "{{ dotfiles_repo }}/.screenlayout"
+    file_type: file
+    recurse: false
+  register: repository_screenlayouts
+
+- name: Inspect target screen layouts
+  ansible.builtin.stat:
+    path: "{{ target_home }}/.screenlayout/{{ item.path | basename }}"
+    follow: false
+  loop: "{{ repository_screenlayouts.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: target_screenlayouts
+
+- name: Link repository screen layouts that are absent locally
+  ansible.builtin.file:
+    src: "{{ item.item.path }}"
+    dest: "{{ target_home }}/.screenlayout/{{ item.item.path | basename }}"
+    state: link
+    follow: false
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  loop: "{{ target_screenlayouts.results }}"
+  loop_control:
+    label: "{{ item.item.path | basename }}"
+  when: not item.stat.exists
+
+- name: Report preserved local screen layouts
+  ansible.builtin.debug:
+    msg: >-
+      Preserving existing {{ target_home }}/.screenlayout/{{ item.item.path | basename }};
+      the repository version was not linked over it.
+  loop: "{{ target_screenlayouts.results }}"
+  loop_control:
+    label: "{{ item.item.path | basename }}"
+  when: >-
+    item.stat.exists and not (
+      item.stat.islnk | default(false) and
+      item.stat.lnk_source | default('') == item.item.path
+    )
+
+- name: Check for the SSH identity that decrypts the client config
+  ansible.builtin.stat:
+    path: "{{ target_home }}/.ssh/id_rsa"
+  register: workstation_ssh_identity
+
+- name: Decrypt the SSH client config
+  ansible.builtin.command: "{{ dotfiles_repo }}/scripts/ssh-config decrypt"
+  args:
+    creates: "{{ target_home }}/.ssh/config"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  when: workstation_ssh_identity.stat.exists
+
+- name: Explain a skipped SSH config decryption
+  ansible.builtin.debug:
+    msg: >-
+      {{ target_home }}/.ssh/id_rsa is absent, so .ssh/config.age was left
+      encrypted. Restore that key, then run scripts/ssh-config decrypt.
+  when: not workstation_ssh_identity.stat.exists
+
+- name: Install custom keyboard layout
+  ansible.builtin.file:
+    src: "{{ dotfiles_repo }}/usr/share/X11/xkb/symbols/lv_pok3r_p1"
+    dest: /usr/share/X11/xkb/symbols/lv_pok3r_p1
+    state: link
+    force: true
+
+- name: Remove obsolete themed Alacritty import
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/alacritty/theme.toml"
+    state: absent
+
+- name: Install Neovim plugins declared in the dotfiles
+  ansible.builtin.command: >-
+    nvim -u {{ target_home }}/.vimrc --headless +PlugInstall +qall
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Migrate an existing Leap checkout to Codeberg
+  ansible.builtin.command: git remote set-url origin https://codeberg.org/andyg/leap.nvim
+  args:
+    chdir: "{{ target_home }}/.local/share/nvim/plugged/leap.nvim"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true
+
+- name: Update Leap from Codeberg
+  ansible.builtin.command: git checkout -B main origin/main
+  args:
+    chdir: "{{ target_home }}/.local/share/nvim/plugged/leap.nvim"
+  become_user: "{{ target_user }}"
+  environment:
+    HOME: "{{ target_home }}"
+  changed_when: true

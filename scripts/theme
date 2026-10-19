@@ -33,6 +33,7 @@ def activate_xmonad() -> None:
 
 def main() -> None:
     interactive_switch = False
+    explicit_theme = None
     if len(sys.argv) == 3 and sys.argv[1] == "use":
         selected = ROOT / "themes" / f"{sys.argv[2]}.toml"
         if not selected.is_file():
@@ -41,13 +42,17 @@ def main() -> None:
             SELECTED_THEME.unlink()
         SELECTED_THEME.symlink_to(selected.name)
         interactive_switch = True
+    elif len(sys.argv) == 3 and sys.argv[1] == "apply":
+        explicit_theme = ROOT / "themes" / f"{sys.argv[2]}.toml"
+        if not explicit_theme.is_file():
+            raise SystemExit(f"Unknown theme: {sys.argv[2]}")
     elif len(sys.argv) == 2 and sys.argv[1] == "reset":
         if SELECTED_THEME.exists() or SELECTED_THEME.is_symlink():
             SELECTED_THEME.unlink()
         interactive_switch = True
     elif len(sys.argv) != 2 or sys.argv[1] != "apply":
-        raise SystemExit("Usage: theme apply | theme use NAME | theme reset")
-    theme = SELECTED_THEME if SELECTED_THEME.is_file() else DEFAULT_THEME
+        raise SystemExit("Usage: theme apply [NAME] | theme use NAME | theme reset")
+    theme = explicit_theme or (SELECTED_THEME if SELECTED_THEME.is_file() else DEFAULT_THEME)
     colors = tomllib.loads(theme.read_text())["colors"]
     required = {
         "wallpaper", "background", "foreground", "accent", "status_accent", "muted",

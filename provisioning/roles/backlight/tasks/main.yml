@@ -1,0 +1,69 @@
+---
+- name: Install the backlight control utility
+  ansible.builtin.apt:
+    name: brightnessctl
+    state: present
+
+- name: Allow the target user to control video devices
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    groups: video
+    append: true
+
+- name: Check the configured backlight device
+  ansible.builtin.stat:
+    path: "/sys/class/backlight/{{ workstation_backlight_device }}/brightness"
+  register: workstation_backlight
+
+- name: Require the configured backlight device
+  ansible.builtin.assert:
+    that: workstation_backlight.stat.exists
+    fail_msg: >-
+      Backlight device {{ workstation_backlight_device }} does not exist under
+      /sys/class/backlight; update the workstation profile before continuing.
+
+- name: Install the workstation backlight permission rule
+  ansible.builtin.copy:
+    dest: "/etc/udev/rules.d/90-{{ workstation_profile }}-backlight.rules"
+    owner: root
+    group: root
+    mode: '0644'
+    content: >-
+      ACTION=="add", SUBSYSTEM=="backlight",
+      KERNEL=="{{ workstation_backlight_device }}",
+      RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness",
+      RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
+
+- name: Reload udev rules
+  ansible.builtin.command: udevadm control --reload-rules
+  changed_when: false
+
+- name: Apply the backlight permission rule
+  ansible.builtin.command: udevadm trigger --action=add --subsystem-match=backlight
+  changed_when: false
+
+- name: Wait for the backlight permission rule
+  ansible.builtin.command: udevadm settle
+  changed_when: false
+
+- name: Inspect the applied backlight permissions
+  ansible.builtin.stat:
+    path: "/sys/class/backlight/{{ workstation_backlight_device }}/brightness"
+  register: workstation_backlight_permissions
+
+- name: Verify the applied backlight permissions
+  ansible.builtin.assert:
+    that:
+      - workstation_backlight_permissions.stat.gr_name == 'video'
+      - workstation_backlight_permissions.stat.wgrp
+    fail_msg: >-
+      The udev rule did not make the brightness control writable by video:
+      group={{ workstation_backlight_permissions.stat.gr_name }},
+      mode={{ workstation_backlight_permissions.stat.mode }}.
+
+- name: Explain the session refresh requirement
+  ansible.builtin.debug:
+    msg: >-
+      The brightness control is writable by video and {{ target_user }} belongs
+      to that group. Log out and back in once so the running XMonad session
+      inherits the new supplementary group.

@@ -1,0 +1,8 @@
+---
+- name: Reload Redshift AppArmor profile
+  ansible.builtin.command:
+    argv:
+      - /sbin/apparmor_parser
+      - -r
+      - /etc/apparmor.d/usr.bin.redshift
+  changed_when: true

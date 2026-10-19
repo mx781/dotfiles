@@ -1,7 +1,8 @@
 # P1: Debian 13 workstation provisioning
 
-P1 replaces the historical `provisioning/pucc` scripts without removing them.
-It separates destructive installer choices from repeatable post-install setup.
+P1 and Pucc share the ordinary workstation and NVIDIA roles. P1 adds its own
+hardware-specific storage stage. Both separate destructive installer choices
+from repeatable post-install setup.
 
 1. Debian Installer owns disks, boot, encryption, hostname, and the first user.
 2. This local Ansible playbook owns packages and dotfile links, and can be rerun.
@@ -15,12 +16,12 @@ It separates destructive installer choices from repeatable post-install setup.
 | `custom` | Debian Installer manual partitioner. |
 
 P1 has no partitioning command yet. Those profiles will be tested in a disposable
-UEFI VM before an installer USB is built. Never use `pucc/00-bootstrap.sh` on
-this machine: its hard-coded `/dev/sda` layout is unrelated to either profile.
+UEFI VM before an installer USB is built. Pucc's single-disk installer layout is
+unrelated to either profile.
 
 The normal P1 run creates and enables an 8 GiB `/swapfile`. It lives within the
 encrypted root filesystem; this default is for suspend, not hibernation. Override
-its size with `-e p1_swapfile_size_mb=VALUE` when needed.
+its size with `-e workstation_swapfile_size_mb=VALUE` when needed.
 
 ## First run after Debian 13 installation
 
@@ -43,7 +44,7 @@ Then clone this repository:
 ```sh
 git clone --recurse-submodules https://github.com/mx781/dotfiles "$HOME/hub/dotfiles"
 cd "$HOME/hub/dotfiles"
-sudo provisioning/p1/bootstrap.sh --user "$USER"
+sudo provisioning/bootstrap.sh --profile p1 --user "$USER"
 ```
 
 Bootstrap normalises the checked-out repository to the `--user` account's
@@ -121,7 +122,9 @@ Re-run just this stage, then restart the user session's audio services to
 pick it up without a reboot:
 
 ```sh
-ansible-playbook site.yml --ask-become-pass --tags drivers
+cd "$HOME/hub/dotfiles/provisioning"
+ansible-playbook site.yml --ask-become-pass \
+  -e workstation_profile=p1 --tags drivers
 systemctl --user restart wireplumber pipewire pipewire-pulse
 ```
 
@@ -160,7 +163,9 @@ xrandr --setprovideroutputsource NVIDIA-G0 modesetting
 Re-run only this stage with:
 
 ```sh
-ansible-playbook site.yml --ask-become-pass --tags nvidia
+cd "$HOME/hub/dotfiles/provisioning"
+ansible-playbook site.yml --ask-become-pass \
+  -e workstation_profile=p1 --tags nvidia
 ```
 
 Changing the module options requires a reboot, because `nouveau` is
@@ -171,7 +176,9 @@ blacklisted from the initramfs at install time.
 and builds the pinned Stack project.  Re-run only that stage with:
 
 ```sh
-ansible-playbook site.yml --ask-become-pass --tags xmonad
+cd "$HOME/hub/dotfiles/provisioning"
+ansible-playbook site.yml --ask-become-pass \
+  -e workstation_profile=p1 --tags xmonad
 ```
 
 ## Remote bootstrap from a newly installed host
@@ -198,7 +205,7 @@ TARGET_USER=maksis
 ssh -p "$SSH_PORT" "$TARGET_USER@$HOST" \
   "git clone --recurse-submodules https://github.com/mx781/dotfiles \"\$HOME/hub/dotfiles\" && \
    cd \"\$HOME/hub/dotfiles\" && \
-   sudo ./provisioning/p1/bootstrap.sh --user \"$TARGET_USER\""
+   sudo ./provisioning/bootstrap.sh --profile p1 --user \"$TARGET_USER\""
 ```
 
 If the host uses a firewall, allow the chosen TCP port before disconnecting from
@@ -214,8 +221,8 @@ stable UUID path, never a volatile `/dev/sdX` name:
 
 ```sh
 lsblk -o PATH,FSTYPE,PARTTYPE,UUID,MOUNTPOINTS
-cd "$HOME/hub/dotfiles/provisioning/p1"
-sudo ansible-playbook mirror-esp.yml \
+cd "$HOME/hub/dotfiles/provisioning"
+sudo ansible-playbook p1/mirror-esp.yml \
   -e p1_secondary_esp_device=/dev/disk/by-uuid/PASTE-THE-SPARE-ESP-UUID
 ```
 
@@ -240,16 +247,17 @@ complete artifact directory back to the host before reviewing the report.
 ## Re-run selected stages
 
 ```sh
-cd "$HOME/hub/dotfiles/provisioning/p1"
-ansible-playbook site.yml --ask-become-pass --tags base
-ansible-playbook site.yml --ask-become-pass --tags dotfiles
-ansible-playbook site.yml --ask-become-pass --tags xmonad
+cd "$HOME/hub/dotfiles/provisioning"
+ansible-playbook site.yml --ask-become-pass -e workstation_profile=p1 --tags base
+ansible-playbook site.yml --ask-become-pass -e workstation_profile=p1 --tags dotfiles
+ansible-playbook site.yml --ask-become-pass -e workstation_profile=p1 --tags xmonad
 ```
 
 Override the target only for an account/repository restoration:
 
 ```sh
 ansible-playbook site.yml --ask-become-pass \
+  -e workstation_profile=p1 \
   -e target_user=maksis -e dotfiles_repo=/home/maksis/hub/dotfiles
 ```
 

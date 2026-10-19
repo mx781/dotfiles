@@ -1,0 +1,14 @@
+---
+workstation_name: Pucc
+workstation_debian_version: '12'
+workstation_debian_release: bookworm
+workstation_debian_suites:
+  - bookworm
+  - bookworm-updates
+  - bookworm-backports
+workstation_theme: orange
+workstation_backlight_enabled: true
+workstation_backlight_device: intel_backlight
+workstation_swapfile_size_mb: 8192
+workstation_storage_enabled: false
+workstation_nvidia_enabled: true

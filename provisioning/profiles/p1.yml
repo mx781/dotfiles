@@ -1,0 +1,13 @@
+---
+workstation_name: P1
+workstation_debian_version: '13'
+workstation_debian_release: trixie
+workstation_debian_suites:
+  - trixie
+  - trixie-updates
+workstation_theme: teal
+workstation_backlight_enabled: true
+workstation_backlight_device: intel_backlight
+workstation_swapfile_size_mb: 8192
+workstation_storage_enabled: true
+workstation_nvidia_enabled: true
