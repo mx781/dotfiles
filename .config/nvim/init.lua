@@ -199,7 +199,16 @@ vim.lsp.config('pyright', {
     end,
   },
 })
-vim.lsp.config('rust_analyzer', {})
+vim.lsp.config('rust_analyzer', {
+  settings = {
+    ['rust-analyzer'] = {
+      check = {
+        -- An explicit command avoids rust-analyzer's flycheck stdout/stderr files.
+        overrideCommand = { 'cargo', 'check', '--workspace', '--all-targets', '--message-format=json' },
+      },
+    },
+  },
+})
 vim.lsp.enable({ 'pyright', 'rust_analyzer' })
 
 local cmp = require('cmp')
