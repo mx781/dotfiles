@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+"""Copy an image to the X11 clipboard as PNG for pasting into other apps."""
+
+import io
+import subprocess
+import sys
+
+from PIL import Image, ImageOps
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit("Usage: feh-copy IMAGE")
+    with Image.open(sys.argv[1]) as source:
+        image = ImageOps.exif_transpose(source).convert("RGBA")
+        png = io.BytesIO()
+        image.save(png, format="PNG")
+    subprocess.run(
+        ["xclip", "-selection", "clipboard", "-target", "image/png", "-in"],
+        input=png.getvalue(),
+        check=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

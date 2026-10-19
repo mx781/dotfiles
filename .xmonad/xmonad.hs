@@ -35,8 +35,8 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run(spawnPipe)
 import XMonad.Util.Dzen
-import XMonad.Util.Brightness (change)
 import Graphics.X11.ExtraTypes.XF86 (xF86XK_MonBrightnessUp, xF86XK_MonBrightnessDown)
+import Graphics.X11.Xlib.Extras (changeProperty32)
 import Theme
 
 import System.IO
@@ -63,20 +63,23 @@ myLayout = lessBorders OnlyScreenFloat $ avoidStruts $ smartBorders $ tiled ||| 
 altMask = mod1Mask
 winMask = mod4Mask
 
--- ~5% of max_brightness (intel_backlight tops out around 24242 on the P1)
-brightnessStep = 1200
-
 brightnessFile = "/sys/class/backlight/intel_backlight/brightness"
+maxBrightnessFile = "/sys/class/backlight/intel_backlight/max_brightness"
 
--- Applies f to the current brightness via XMonad.Util.Brightness (which uses
--- strict ByteString IO so the read handle closes before it writes back), then
--- does a separate strict read afterwards to report the resulting value for
--- the dzen alert.
-adjustBrightness :: (Int -> Int) -> IO Int
-adjustBrightness f = do
-  _ <- change f
-  contents <- BS.readFile brightnessFile
-  return (read (BS.unpack contents))
+readBrightness :: FilePath -> IO Int
+readBrightness path = read . BS.unpack <$> BS.readFile path
+
+-- Work in percentages because intel_backlight uses very different raw scales
+-- across P1 and Pucc. Report the resulting percentage in the dzen alert.
+adjustBrightness :: Int -> IO Int
+adjustBrightness percentDelta = do
+  current <- readBrightness brightnessFile
+  maxBrightness <- readBrightness maxBrightnessFile
+  let rawDelta = maxBrightness * percentDelta `div` 100
+      target = max 1 (min maxBrightness (current + rawDelta))
+  BS.writeFile brightnessFile (BS.pack (show target))
+  actual <- readBrightness brightnessFile
+  return ((actual * 100 + maxBrightness `div` 2) `div` maxBrightness)
 
 myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $ 
     [ 
@@ -136,8 +139,8 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , ((winMask, xK_Left), lowerVolume 4 >>= alert)
   , ((winMask, xK_Right), raiseVolume 4 >>= alert)
 
-  , ((0, xF86XK_MonBrightnessUp), liftIO (adjustBrightness (+ brightnessStep)) >>= alert)
-  , ((0, xF86XK_MonBrightnessDown), liftIO (adjustBrightness (subtract brightnessStep)) >>= alert)
+  , ((0, xF86XK_MonBrightnessUp), liftIO (adjustBrightness 5) >>= alert)
+  , ((0, xF86XK_MonBrightnessDown), liftIO (adjustBrightness (-5)) >>= alert)
 
   -- Programs (alt)
   , ((winMask, xK_t), spawn myTerminal)
@@ -198,6 +201,23 @@ myLogHook h = dynamicLogWithPP $ def
       , ppOutput            =   hPutStrLn h
     }
 
+-- dzen does not publish a strut at an internal monitor edge (for example,
+-- the laptop below an external display). Struts use root-window coordinates;
+-- avoidStruts ignores one that would consume an entire other screen.
+reserveDzenSpace :: ManageHook
+reserveDzenSpace = do
+  w <- ask
+  liftX $ withDisplay $ \dpy -> do
+    attrs <- io $ getWindowAttributes dpy w
+    strut <- getAtom "_NET_WM_STRUT_PARTIAL"
+    cardinal <- getAtom "CARDINAL"
+    let x = fromIntegral (wa_x attrs)
+        top = fromIntegral (wa_y attrs + wa_height attrs)
+        right = x + fromIntegral (wa_width attrs) - 1
+    io $ changeProperty32 dpy w strut cardinal propModeReplace
+      [0, 0, top, 0, 0, 0, 0, 0, x, right, 0, 0]
+  idHook
+
 myManageHook :: ManageHook
 myManageHook = (composeAll . concat $
     [ [resource     =? r --> doIgnore            |   r   <- myIgnores] -- ignore desktop
@@ -210,6 +230,7 @@ myManageHook = (composeAll . concat $
     , [name         =? n --> doCenterFloat       |   n   <- myNames  ] -- float my names
     , [isFullscreen                 --> doFullFloat                  ]
     , [manageDocks]
+    , [resource =? "dzen2" --> reserveDzenSpace]
     ])
   where
 
@@ -256,6 +277,7 @@ myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock $(" ++
 myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x" ++ drop 1 themeBackground ++ " --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
 
 myStartup = do
+  docksStartupHook
   spawn myTrayer
   spawn "redshift"
   return()

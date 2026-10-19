@@ -153,7 +153,11 @@ fi
 # Deliberately not `set -o vi`: it breaks Alt+Backspace (ESC is eaten as the
 # insert->command mode switch, so backward-kill-word never fires).
 
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+if [ -f ~/.fzf.bash ]; then
+    # The /opt/fzf integration needs its matching binary, not the older distro fzf.
+    [ -x /opt/fzf/bin/fzf ] && export PATH="/opt/fzf/bin:$PATH"
+    source ~/.fzf.bash
+fi
 
 export EDITOR='nvim'
 

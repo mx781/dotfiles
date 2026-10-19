@@ -1,0 +1,2 @@
+# Copy the image to the X11 clipboard; retain the numbered action shortcut.
+action_1 1 C-c

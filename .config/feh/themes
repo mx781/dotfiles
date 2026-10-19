@@ -1,0 +1,1 @@
+feh --action1 ';[Copy image]"$HOME/scripts/feh-copy" %F'
