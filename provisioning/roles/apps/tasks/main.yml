@@ -71,20 +71,62 @@
       - gopass
       - gopass-archive-keyring
       - libreoffice
+      - poppler-utils
+      - qbittorrent
       - redshift
       - tailscale
     state: present
     update_cache: true
 
+- name: Enable and start tailscaled
+  ansible.builtin.systemd_service:
+    name: tailscaled
+    enabled: true
+    state: started
+
+# Note: "tailscale up" resets prefs that aren't passed as flags, so running
+# it without --operator=<user> silently wipes this setting. Authenticate with
+# "tailscale up --operator=<user>", or re-run this role to restore it.
+- name: Check current Tailscale operator
+  ansible.builtin.command: tailscale debug prefs
+  register: workstation_tailscale_prefs
+  changed_when: false
+
+- name: Allow the main user to operate Tailscale without sudo
+  ansible.builtin.command: "tailscale set --operator={{ target_user }}"
+  when: (workstation_tailscale_prefs.stdout | from_json).OperatorUser | default('') != target_user
+  changed_when: true
+
 - name: Configure Redshift AppArmor access to repo-linked settings
   ansible.builtin.import_tasks: redshift-apparmor.yml
   tags: [redshift-apparmor]
+
+# - Chromium's xdg-desktop-portal secret storage silently fails without a
+#   portal or GNOME/KDE session, so pin the keyless "basic" store instead.
+# - Chromium's AccountReconcilor calls Google's /Logout endpoint on every
+#   startup because no account is signed into the browser itself (only the
+#   website), which it treats as a mismatch to fix. --disable-sync turns
+#   off the identity service that drives this, confirmed via net-log
+#   capture across repeated restarts.
+- name: Work around Chromium session-cookie storage issues
+  ansible.builtin.copy:
+    dest: /etc/chromium.d/99-password-store
+    mode: '0644'
+    content: |
+      CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"
+      CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-sync"
+
+- name: Check whether Telegram Desktop is already installed
+  ansible.builtin.stat:
+    path: /opt/Telegram/Telegram
+  register: workstation_telegram
 
 - name: Download Telegram Desktop archive
   ansible.builtin.get_url:
     url: https://telegram.org/dl/desktop/linux
     dest: "/var/cache/{{ workstation_profile }}-telegram.tar.xz"
     mode: '0644'
+  when: not workstation_telegram.stat.exists
 
 - name: Install Telegram Desktop
   ansible.builtin.unarchive:

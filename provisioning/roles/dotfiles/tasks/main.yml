@@ -158,6 +158,24 @@
     state: link
     force: true
 
+# Setting the layout server-side rather than calling setxkbmap from the
+# session means Xorg compiles it once at startup and re-applies it to every
+# keyboard that appears later, so hotplugging an external board does not
+# silently fall back to the evdev default.
+- name: Make the custom layout the default for all keyboards
+  ansible.builtin.copy:
+    dest: "/etc/X11/xorg.conf.d/50-{{ workstation_profile }}-keyboard-layout.conf"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by the {{ workstation_name }} workstation profile.
+      Section "InputClass"
+          Identifier "{{ workstation_profile }} keyboard layout"
+          MatchIsKeyboard "on"
+          Option "XkbLayout" "lv_pok3r_p1"
+      EndSection
+
 - name: Remove obsolete themed Alacritty import
   ansible.builtin.file:
     path: "{{ target_home }}/.config/alacritty/theme.toml"

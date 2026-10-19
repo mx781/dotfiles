@@ -1,0 +1,117 @@
+#!/bin/sh
+# One entry point for this machine's power policy.
+#
+# TLP already owns the bulk of it: it applies a full battery/AC profile on
+# every power-source change via its own udev rule (85-tlp.rules ->
+# `tlp auto`), covering USB autosuspend, wifi power save, sound power save,
+# SATA link power and the CPU energy/performance policy. This script does not
+# reimplement any of that -- it wraps TLP for manual overrides and adds the
+# one thing TLP must not touch: the discrete GPU.
+#
+# The dGPU stays PINNED AWAKE in both modes, on purpose. Letting it reach
+# D3cold blocks the X server for ~1.5s on every resume, which reads as the
+# whole desktop freezing for a second about once a minute (measured: an 8ms X
+# round-trip became 1518/1618/1568ms). That costs roughly 9-16 min of runtime
+# per hour on battery, which is the deliberate trade. `dgpu auto` is the
+# manual escape hatch when you want the watts back.
+#
+#   power-mode            show the whole picture
+#   power-mode ac         force TLP's AC profile (performance), dGPU pinned
+#   power-mode battery    force TLP's battery profile (saving), dGPU pinned
+#   power-mode auto       hand control back to the real power source
+#
+# TODO: a third, aggressive mode -- "stingy" / "longlife" -- for when runtime
+# beats everything. Unlike the modes above it would accept visible
+# regressions: unpin the dGPU (back to RTD3, freezes and all), kill known
+# hogs (Telegram, Blender, spare Chromium profiles), turn off wifi and
+# Bluetooth, drop screen brightness. Device tunables are NOT where the wins
+# are -- TLP already handles those, and the smartcard reader people blame is
+# already suspended at 0.0% active. The wins are in processes and radios.
+set -eu
+
+TLP=/usr/sbin/tlp
+DGPU_OVERRIDE=/run/p1-dgpu-manual-auto
+BAT=/sys/class/power_supply/BAT0
+AC=/sys/class/power_supply/AC/online
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+die() { echo "power-mode: $*" >&2; exit 1; }
+
+[ -x "$TLP" ] || die "$TLP not found; is tlp installed?"
+
+on_battery() { [ -r "$AC" ] && [ "$(cat "$AC")" = 0 ]; }
+
+status() {
+    if on_battery; then
+        src=battery
+        watts=$(awk '{ if ($1 > 0) printf ", drawing %.2f W", $1 / 1000000 }' \
+            "$BAT/power_now" 2>/dev/null || true)
+    else
+        src=AC
+        watts=""
+    fi
+    cap=$(cat "$BAT/capacity" 2>/dev/null || echo "?")
+
+    printf 'source     %s%s  (battery at %s%%)\n' "$src" "$watts" "$cap"
+
+    case "$(cat /run/tlp/last_pwr 2>/dev/null || echo '')" in
+        0) printf 'tlp mode   AC profile\n' ;;
+        1) printf 'tlp mode   battery profile\n' ;;
+        *) printf 'tlp mode   unknown (tlp may not have run yet)\n' ;;
+    esac
+
+    # A forced profile disagreeing with the real source is worth surfacing --
+    # TLP reverts it on the next power event, so it is easy to forget.
+    if { [ "$src" = battery ] && [ "$(cat /run/tlp/last_pwr 2>/dev/null)" = 0 ]; } \
+    || { [ "$src" = AC ] && [ "$(cat /run/tlp/last_pwr 2>/dev/null)" = 1 ]; }; then
+        printf '           ^ forced override; reverts on the next power change\n'
+    fi
+
+    echo
+    "$HERE/dgpu-power" status | sed 's/^/dgpu  /'
+
+    if [ -e "$DGPU_OVERRIDE" ]; then
+        echo
+        echo 'NOTE  dGPU is on a manual RTD3 override, so the power-change hook'
+        echo '      will leave it alone. Run `dgpu on` to clear it.'
+    fi
+}
+
+# Pin the GPU unless the user deliberately asked for RTD3.
+assert_dgpu() {
+    if [ -e "$DGPU_OVERRIDE" ]; then
+        echo "dGPU left on its manual RTD3 override (\`dgpu on\` clears it)"
+    else
+        "$HERE/dgpu-power" on
+    fi
+}
+
+case "${1:-status}" in
+    status|"")
+        status
+        ;;
+    ac)
+        sudo "$TLP" ac
+        assert_dgpu
+        echo "forced TLP's AC profile; reverts on the next power change"
+        ;;
+    battery|bat)
+        sudo "$TLP" bat
+        assert_dgpu
+        echo "forced TLP's battery profile; reverts on the next power change"
+        ;;
+    auto)
+        sudo "$TLP" auto
+        assert_dgpu
+        echo "TLP is following the real power source again"
+        ;;
+    stingy|longlife)
+        die "not implemented yet -- see the TODO at the top of $0"
+        ;;
+    -h|--help|help)
+        sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        die "unknown command '$1' (try: status, ac, battery, auto)"
+        ;;
+esac

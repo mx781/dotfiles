@@ -137,21 +137,24 @@ so DKMS rebuilds the module for every future kernel.
 
 The GPU is configured for PRIME render offload rather than as the primary
 display device. The Intel iGPU keeps driving every screen through the
-`modesetting` driver; the discrete GPU is added as a secondary Xorg screen and
-stays in RTD3 runtime suspend until something asks for it:
+`modesetting` driver; the discrete GPU is added as a secondary Xorg screen.
+On P1 it stays awake by default to avoid X server stalls during RTD3 resume.
+Use PRIME to select it for an application:
 
 ```sh
 prime-run glxinfo | grep 'OpenGL renderer'
 prime-run blender
 ```
 
-CUDA and `nvidia-smi` work without the wrapper. Waking the GPU from D3cold
-costs roughly a second on the first offloaded frame.
+CUDA and `nvidia-smi` work without the wrapper. `dgpu auto` allows runtime
+suspend for battery savings, with the known resume stalls; `dgpu on` restores
+the default. The manual override lasts until cleared or rebooted. TLP and udev
+preserve this policy across power-source changes. Pucc retains its existing
+runtime-power-management policy.
 
-`nvidia-persistenced` is deliberately not installed: persistence mode holds
-the GPU awake and defeats runtime power management. If the machine misbehaves
-on resume, set `options nvidia NVreg_DynamicPowerManagement=0x00` in
-`/etc/modprobe.d/p1-nvidia.conf` and rerun `update-initramfs -u -k all`.
+`nvidia-persistenced` is deliberately not installed so manual runtime suspend
+remains available. Driver-level RTD3 remains enabled; P1's default is enforced
+through its udev rule and TLP configuration.
 
 Displays wired to the discrete GPU (on this chassis, HDMI) need a one-time
 provider hookup per X session before `xrandr` will list their outputs:

@@ -1,0 +1,170 @@
+#!/bin/sh
+# Toggle runtime power management (RTD3) for the discrete NVIDIA GPU.
+#
+# Under RTD3 the dGPU reaches D3cold once idle, but the Xorg OutputClass makes
+# the X server a permanent client of it, so every resume blocks the whole
+# single-threaded server for ~1.5s. Measured on this machine: an X round-trip
+# went from 8ms to 1518/1618/1568ms across three consecutive resumes, which
+# presents as the desktop freezing for a second roughly once a minute while
+# typing and scrolling still register and replay afterwards.
+#
+# The P1 nvidia role therefore pins the GPU awake by default. That is not free
+# -- it costs the card's idle draw for the whole battery session -- so this
+# script flips it back for stretches where runtime matters more than a smooth
+# desktop. Only ever matters on battery: TLP pins every PCI device awake on AC
+# regardless (RUNTIME_PM_ON_AC="on").
+#
+#   dgpu-power            show current state
+#   dgpu-power on         pin awake  -- no freezes, costs idle watts
+#   dgpu-power auto       allow RTD3 -- saves watts, reintroduces the freezes
+#   dgpu-power toggle     switch between the two
+#   dgpu-power measure    measure the real watt cost, on battery
+set -eu
+
+BAT=/sys/class/power_supply/BAT0
+AC=/sys/class/power_supply/AC/online
+OVERRIDE=/run/p1-dgpu-manual-auto
+
+die() { echo "dgpu-power: $*" >&2; exit 1; }
+
+# Locate the NVIDIA display controller the same way the nvidia role does,
+# rather than hard-coding a PCI address that a firmware update could move.
+find_gpu() {
+    for device in /sys/bus/pci/devices/*; do
+        [ "$(cat "$device/vendor" 2>/dev/null)" = 0x10de ] || continue
+        case "$(cat "$device/class" 2>/dev/null)" in
+            0x0300*) echo "$device"; return 0 ;;
+        esac
+    done
+    return 1
+}
+
+GPU=$(find_gpu) || die "no NVIDIA display controller found"
+[ -w "$GPU/power/control" ] || [ -r "$GPU/power/control" ] \
+    || die "$GPU/power/control is not readable"
+
+set_control() {
+    # The sysfs node is root-owned; everything else here is unprivileged.
+    echo "$1" | sudo tee "$GPU/power/control" >/dev/null
+}
+
+# The power-change hook re-pins the GPU on every AC/battery switch, so a
+# deliberate `dgpu auto` has to record that intent somewhere the hook can see
+# it -- otherwise unplugging would silently undo it. /run is tmpfs, so a
+# reboot always comes back pinned, which is the safe default.
+pin() {
+    set_control on
+    sudo rm -f "$OVERRIDE"
+}
+
+unpin() {
+    set_control auto
+    sudo touch "$OVERRIDE"
+}
+
+# Watts, or empty when the figure is unavailable (on AC, or a full battery
+# reports 0, or the driver exposes current/voltage instead of power).
+read_watts() {
+    if [ -r "$BAT/power_now" ]; then
+        awk '{ if ($1 > 0) printf "%.2f", $1 / 1000000 }' "$BAT/power_now"
+    elif [ -r "$BAT/current_now" ] && [ -r "$BAT/voltage_now" ]; then
+        awk 'NR==1 { i=$1 } NR==2 { v=$1 }
+             END { if (i > 0 && v > 0) printf "%.2f", (i * v) / 1000000000000 }' \
+            "$BAT/current_now" "$BAT/voltage_now"
+    fi
+}
+
+on_battery() {
+    [ -r "$AC" ] && [ "$(cat "$AC")" = 0 ]
+}
+
+status() {
+    control=$(cat "$GPU/power/control")
+    state=$(cat "$GPU/power/runtime_status")
+    active=$(awk '{ printf "%.2f", $1 / 86400000 }' "$GPU/power/runtime_active_time")
+    susp=$(awk '{ printf "%.2f", $1 / 86400000 }' "$GPU/power/runtime_suspended_time")
+
+    printf 'gpu        %s\n' "$(basename "$GPU")"
+    printf 'control    %s  (%s)\n' "$control" \
+        "$([ "$control" = on ] && echo 'pinned awake, no freezes' \
+                              || echo 'RTD3 allowed, expect ~1.5s freezes')"
+    printf 'state      %s\n' "$state"
+    printf 'lifetime   %s days active / %s days suspended\n' "$active" "$susp"
+
+    if on_battery; then
+        watts=$(read_watts)
+        printf 'power      battery%s\n' \
+            "${watts:+, drawing ${watts} W}"
+    else
+        printf 'power      AC (TLP pins the GPU awake on AC regardless)\n'
+    fi
+}
+
+measure() {
+    on_battery || die "run this on battery: power_now reads 0 on AC"
+    [ "$(cat "$BAT/status" 2>/dev/null)" = Discharging ] \
+        || die "battery is not discharging; unplug and let it settle first"
+
+    original=$(cat "$GPU/power/control")
+    # Restore whatever was there even if we are interrupted part way.
+    trap 'set_control "$original" 2>/dev/null || true' EXIT INT TERM
+
+    echo "Pinning the GPU awake for a baseline..."
+    set_control on
+    sleep 15
+    base=$(read_watts)
+    [ -n "$base" ] || die "could not read a power figure from $BAT"
+    echo "  baseline (GPU awake):   $base W"
+
+    echo "Allowing RTD3 and waiting for D3cold (expect some freezes)..."
+    set_control auto
+    waited=0
+    while [ "$(cat "$GPU/power/runtime_status")" != suspended ]; do
+        [ "$waited" -ge 90 ] && die "GPU never reached D3cold; something is holding it awake"
+        sleep 5
+        waited=$((waited + 5))
+    done
+    echo "  reached D3cold after ${waited}s; settling..."
+    sleep 15
+    susp=$(read_watts)
+    [ -n "$susp" ] || die "could not read a power figure from $BAT"
+    echo "  suspended (D3cold):     $susp W"
+
+    set_control "$original"
+    trap - EXIT INT TERM
+    echo "  restored control=$original"
+
+    full=$(awk '{ printf "%.2f", $1 / 1000000 }' "$BAT/energy_full" 2>/dev/null || echo 0)
+    echo
+    awk -v b="$base" -v s="$susp" -v wh="$full" 'BEGIN {
+        d = b - s
+        if (d <= 0) {
+            print "The awake reading was not higher than the suspended one."
+            print "Noise from background load most likely swamped the GPU; retry on an idle desktop."
+            exit
+        }
+        printf "dGPU idle draw      %.2f W\n", d
+        printf "runtime lost        %.0f%% (%.0f min per hour you would have had)\n", \
+            100 * d / b, 60 * d / b
+        if (wh > 0)
+            printf "on this %.0f Wh pack  %.2f h pinned  vs  %.2f h with RTD3\n", wh, wh / b, wh / s
+    }'
+}
+
+case "${1:-status}" in
+    status|"")  status ;;
+    on)         pin;   echo "dGPU pinned awake (no freezes, costs idle watts)" ;;
+    auto)       unpin; echo "dGPU may now reach D3cold (saves watts, expect ~1.5s freezes)" ;;
+    toggle)
+        if [ "$(cat "$GPU/power/control")" = on ]; then
+            unpin; echo "dGPU -> auto (saves watts, expect ~1.5s freezes)"
+        else
+            pin;   echo "dGPU -> on (pinned awake, no freezes)"
+        fi
+        ;;
+    measure)    measure ;;
+    -h|--help|help)
+        sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)  die "unknown command '$1' (try: status, on, auto, toggle, measure)" ;;
+esac

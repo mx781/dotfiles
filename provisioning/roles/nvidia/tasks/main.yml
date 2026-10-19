@@ -1,7 +1,34 @@
 ---
 # Debian's packaged NVIDIA driver, configured for PRIME render offload:
-# the Intel iGPU keeps driving every display and the discrete GPU stays
-# powered down until a client is launched through `prime-run`.
+# the Intel iGPU keeps driving every display and the discrete GPU only does
+# work for clients launched through `prime-run`.
+#
+# On P1 the discrete GPU is deliberately NOT runtime power managed. Pucc
+# retains runtime PM, since this stall workaround is specific to P1. The Xorg
+# OutputClass below makes the X server itself a permanent client of the
+# discrete GPU, so it holds /dev/nvidia0 open for the life of the session.
+# Under RTD3 that combination is pathological: the GPU reaches D3cold after
+# ~20s idle, X touches it again, and the resume blocks the single-threaded X
+# server for ~1.5s. Measured on this machine, an X round-trip went from 8ms
+# to 1518/1618/1568ms across three consecutive resumes, which presents as the
+# whole desktop freezing for a second roughly once a minute while typing and
+# scrolling still register and replay afterwards.
+#
+# This is not a free win. The GPU can only reach D3cold on battery (see the
+# TLP note below), so every bit of the driver's recorded suspend time -- 1.19
+# days out of 7.6 days of uptime -- happened during battery use, and during
+# those stretches it was suspended the large majority of the time. Pinning it
+# awake buys back the stalls at the cost of real battery runtime. An earlier
+# revision of this comment cited "83.8% awake" as evidence that RTD3 bought
+# little; that figure averages over AC time, where TLP pins the GPU awake
+# regardless, and so understates what RTD3 was saving on battery.
+#
+# This only ever reproduced on battery, which is what made it look sudden:
+# TLP's stock RUNTIME_PM_ON_AC="on" pins every PCI device to full power on
+# AC, and RUNTIME_PM_ON_BAT="auto" hands them to runtime PM on battery. So
+# unplugging is what armed the freezes. The P1 udev rule pins power/control
+# at bind, and the TLP drop-in and assert hook preserve that policy across
+# power-source changes. Driver-level RTD3 stays available for manual overrides.
 
 - name: Detect an NVIDIA display controller
   ansible.builtin.shell:
@@ -56,13 +83,16 @@
           # Xorg OutputClass below matches on; without it Xorg never picks up
           # the discrete GPU as an offload provider.
           options nvidia-drm modeset=1
-          # RTD3 runtime power management. Lets the discrete GPU reach D3cold
-          # while no offloaded client is running. Set this to 0x00 if the
-          # machine misbehaves on resume.
+          # RTD3 runtime power management, left ENABLED at the driver level
+          # on purpose. 0x00 would refuse to runtime suspend at all, which
+          # also makes scripts/dgpu-power's "auto" mode a no-op. Keeping the
+          # capability here lets Pucc suspend normally and allows P1
+          # to opt in via the manual toggle. P1 defaults to power/control="on"
+          # in the udev rule below to prevent X server stalls.
           options nvidia NVreg_DynamicPowerManagement=0x02
       notify: Update the initramfs
 
-    - name: Allow runtime power management for the discrete GPU
+    - name: Configure the profile's discrete GPU runtime power policy
       ansible.builtin.copy:
         dest: "/etc/udev/rules.d/80-{{ workstation_profile }}-nvidia-pm.rules"
         owner: root
@@ -70,12 +100,85 @@
         mode: '0644'
         content: |
           # Managed by the {{ workstation_name }} workstation profile.
-          # Hand the NVIDIA VGA (0x030000) and 3D (0x030200)
-          # PCI functions to the kernel's runtime PM once the driver binds.
-          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="auto"
-          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="auto"
+          # P1 stays awake to avoid X server stalls; Pucc retains runtime PM.
+          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="{{ 'on' if workstation_profile == 'p1' else 'auto' }}"
+          ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="{{ 'on' if workstation_profile == 'p1' else 'auto' }}"
           ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="on"
           ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"
+      notify: Reload udev rules
+
+    # TLP gets the deciding vote: it re-applies power/control on every
+    # AC/battery transition, so on battery it would set the discrete GPU back
+    # to "auto" and undo the udev rule above. TLP's stock driver denylist
+    # covers nouveau but not nvidia. Setting the variable replaces TLP's
+    # default value rather than appending, so the stock entries are repeated
+    # here alongside nvidia.
+    - name: Exclude the discrete GPU from TLP's runtime power management
+      when: workstation_profile == 'p1'
+      ansible.builtin.copy:
+        dest: /etc/tlp.d/10-p1-nvidia-pm.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1.
+          RUNTIME_PM_DRIVER_DENYLIST="mei_me nouveau radeon xhci_hcd nvidia"
+      notify: Restart TLP
+
+    # The bind-time udev rule above only fires once, at driver bind. If
+    # anything flips power/control back to "auto" mid-session the stall-free
+    # guarantee lapses silently until the next reboot, so re-assert it on
+    # every power-source change too. TLP applies its own profile from
+    # 85-tlp.rules; this sits at 90 so it lands afterwards.
+    - name: Install the power-source-change assert hook
+      when: workstation_profile == 'p1'
+      ansible.builtin.copy:
+        dest: /usr/local/sbin/p1-power-assert
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          # Managed by P1. Re-pin the discrete GPU after a power-source change.
+          #
+          # Normally a no-op: the GPU is denylisted in TLP and pinned at bind.
+          # A deliberate `dgpu auto` leaves the override file behind, and this
+          # respects it so unplugging does not silently undo the user's choice.
+          set -eu
+
+          if [ -e /run/p1-dgpu-manual-auto ]; then
+              exit 0
+          fi
+
+          for device in /sys/bus/pci/devices/*; do
+              if [ "$(cat "$device/vendor" 2>/dev/null)" != 0x10de ]; then
+                  continue
+              fi
+              case "$(cat "$device/class" 2>/dev/null)" in
+                  0x0300*|0x0302*) ;;
+                  *) continue ;;
+              esac
+              if [ ! -w "$device/power/control" ]; then
+                  continue
+              fi
+              if [ "$(cat "$device/power/control")" != on ]; then
+                  echo on > "$device/power/control"
+              fi
+          done
+
+    - name: Run the assert hook on every power-source change
+      when: workstation_profile == 'p1'
+      ansible.builtin.copy:
+        dest: /etc/udev/rules.d/90-p1-power-mode.rules
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1. Runs after TLP's own 85-tlp.rules handler. The
+          # hidpp_battery exclusion matches TLP's: a wireless mouse reporting
+          # its charge is not a power-source change.
+          ACTION=="change", SUBSYSTEM=="power_supply", KERNEL!="hidpp_battery*", RUN+="/usr/local/sbin/p1-power-assert"
+      notify: Reload udev rules
 
     # Debian ships this snippet as /etc/nvidia/current/nvidia-drm-outputclass.conf
     # but never places it anywhere Xorg reads, so the role installs its own copy.

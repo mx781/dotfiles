@@ -5,7 +5,8 @@
 themes/selected.toml
 provisioning/p1/test-results/
 
-# Machine- and employer-specific configuration, loaded by tracked dotfiles.
-/local/
 # Plaintext SSH config: only .ssh/config.age is committed.
 .ssh/config
+# Machine-local configuration, loaded by tracked dotfiles.
+*.private
+.claude/

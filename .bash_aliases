@@ -49,6 +49,43 @@ brightness() {
     echo $1 > /sys/class/backlight/intel_backlight/brightness
 }
 
+## power
+# TLP owns the battery/AC profile and switches it automatically on every
+# power-source change; these wrap it for manual overrides and keep the
+# discrete GPU pinned awake in both modes. The GPU is pinned because every
+# D3cold resume blocks the X server for ~1.5s, which reads as the whole
+# desktop freezing for a second about once a minute.
+#   pmode           source, tlp profile, gpu state and draw
+#   ac / battery    force one profile until the next power change
+#   dgpu auto       hand the watts back, freezes and all (manual override)
+#   dgpu measure    what pinning actually costs, in watts
+pmode() {
+    "$DOTFILES/scripts/power-mode" "$@"
+}
+
+dgpu() {
+    "$DOTFILES/scripts/dgpu-power" "$@"
+}
+
+# Shadows the rarely-used `ac` from the acct package, which is not installed.
+alias ac="pmode ac"
+alias battery="pmode battery"
+
+## provisioning
+# Runs from the playbook directory so ansible.cfg and inventory resolve, in a
+# subshell so the caller's cwd survives. Extra args pass straight through:
+#   provision p1 --tags base
+#   provision pucc --tags base,dotfiles --check
+provision() {
+    local profile="${1:-}"
+    case "$profile" in
+        p1|pucc) shift ;;
+        *) printf 'Usage: provision {p1|pucc} [ansible-playbook arguments]\n' >&2; return 2 ;;
+    esac
+    (cd "$DOTFILES/provisioning" && ansible-playbook site.yml --ask-become-pass \
+        -e "workstation_profile=$profile" "$@")
+}
+
 ## mandratek
 alias manifold="cd /home/maksis/hub/maxtor/manifold && source venv/bin/activate"
 alias mandra="cd /home/maksis/hub/maxtor/mandragora && source 311/bin/activate && source .env"
@@ -59,9 +96,10 @@ alias olafa-nets="nmcli -p con up id olafs"
 alias ppp="PYTHONPATH=$(pwd) python"
 alias awake="dual && config-keyb && reset-bt"
 
-# Keep machine- and employer-specific aliases out of the public repository.
-local_aliases="$DOTFILES/local/bash_aliases"
-if [ -r "$local_aliases" ]; then
-    . "$local_aliases"
+## machine-local
+# Aliases that should not be committed: internal hostnames, per-machine paths,
+# anything credential-shaped. Gitignored, and sourced last so it can override
+# anything above. Missing on a fresh checkout, which is fine.
+if [ -f "$DOTFILES/.bash_aliases.private" ]; then
+    . "$DOTFILES/.bash_aliases.private"
 fi
-unset local_aliases
