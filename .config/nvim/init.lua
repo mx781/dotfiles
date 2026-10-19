@@ -1,9 +1,76 @@
 vim.cmd('source ~/.vimrc')
 
-local plugged = vim.fn.stdpath('data') .. '/plugged'
-for _, plugin in ipairs(vim.fn.readdir(plugged)) do
-  vim.opt.runtimepath:append(plugged .. '/' .. plugin)
+-- Stronger diff backgrounds than Catppuccin's subtle default tints.
+require('codediff').setup({
+  diff = {
+    compact = true,
+  },
+  highlights = {
+    line_insert = '#264b36',
+    line_delete = '#59313b',
+    char_insert = '#3b6b43',
+    char_delete = '#85414c',
+  },
+})
+
+-- CodeDiff owns compact folds. Its window option writes otherwise trigger
+-- Neovim 0.12's global Treesitter refresh, which can retain deleted buffers.
+-- Suppress OptionSet only while CodeDiff applies/restores its compact folds.
+local compact = require('codediff.ui.view.compact')
+if not compact.dotfiles_optionset_workaround then
+  for _, name in ipairs({ 'enable', 'disable', 'refresh' }) do
+    local original = compact[name]
+    compact[name] = function(...)
+      local eventignore = vim.o.eventignore
+      vim.opt.eventignore:append('OptionSet')
+      local ok, result = pcall(original, ...)
+      vim.o.eventignore = eventignore
+      if not ok then error(result, 0) end
+      return result
+    end
+  end
+  compact.dotfiles_optionset_workaround = true
 end
+
+-- CodeDiff resets wrap during rendering and window entry; restore it afterward.
+local codediff_wrap_pending = false
+local function wrap_codediff_panes()
+  if codediff_wrap_pending then return end
+  codediff_wrap_pending = true
+  vim.schedule(function()
+    codediff_wrap_pending = false
+    local lifecycle = package.loaded['codediff.ui.lifecycle']
+    if not lifecycle then return end
+    for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+      local session = lifecycle.get_session(tab)
+      if session then
+        for _, win in pairs({ session.original_win, session.modified_win, session.result_win }) do
+          if vim.api.nvim_win_is_valid(win) then
+            vim.wo[win][0].wrap = true
+            vim.wo[win][0].linebreak = true
+          end
+        end
+      end
+    end
+  end)
+end
+local codediff_wrap_group = vim.api.nvim_create_augroup('DotfilesCodeDiffWrap', { clear = true })
+vim.api.nvim_create_autocmd('User', {
+  group = codediff_wrap_group,
+  pattern = { 'CodeDiffOpen', 'CodeDiffFileSelect' },
+  callback = wrap_codediff_panes,
+})
+vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
+  group = codediff_wrap_group,
+  callback = wrap_codediff_panes,
+})
+vim.api.nvim_create_autocmd('OptionSet', {
+  group = codediff_wrap_group,
+  pattern = 'wrap',
+  callback = function()
+    if vim.v.option_new == false or vim.v.option_new == '0' then wrap_codediff_panes() end
+  end,
+})
 
 local treesitter = require('nvim-treesitter')
 treesitter.setup {
@@ -52,7 +119,25 @@ vim.api.nvim_create_autocmd('LspAttach', {
   end,
 })
 
-vim.lsp.config('pyright', {})
+vim.lsp.config('pyright', {
+  handlers = {
+    ['textDocument/rename'] = function(err, result, ctx, config)
+      -- Pyright can emit annotation IDs without the corresponding metadata.
+      -- https://github.com/microsoft/pyright/issues/10671
+      if result then
+        local annotations = result.changeAnnotations or {}
+        for _, change in ipairs(result.documentChanges or {}) do
+          for _, edit in ipairs(change.edits or {}) do
+            if edit.annotationId and not annotations[edit.annotationId] then
+              edit.annotationId = nil
+            end
+          end
+        end
+      end
+      return vim.lsp.handlers['textDocument/rename'](err, result, ctx, config)
+    end,
+  },
+})
 vim.lsp.config('rust_analyzer', {})
 vim.lsp.enable({ 'pyright', 'rust_analyzer' })
 
@@ -72,7 +157,6 @@ cmp.setup({
 })
 
 vim.api.nvim_create_user_command('Leetcode', function()
-  vim.cmd('Copilot disable')
   vim.cmd('vsplit')
   vim.cmd('wincmd l')
   vim.cmd('term')

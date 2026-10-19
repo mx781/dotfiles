@@ -132,6 +132,10 @@ call plug#begin()
 
     "Git
     Plug 'tpope/vim-fugitive'
+    if has('nvim')
+      Plug 'esmuellert/codediff.nvim'
+      Plug expand('~/hub/dotfiles/plugins/worktree-context.nvim')
+    endif
 
     "Obsidian
     Plug 'nvim-lua/plenary.nvim'
@@ -192,7 +196,9 @@ autocmd FileType md setlocal conceallevel=1
 
 ""Treesitter/folding
 set foldmethod=expr
-set foldexpr=nvim_treesitter#foldexpr()
+if has('nvim')
+  set foldexpr=v:lua.vim.treesitter.foldexpr()
+endif
 set nofoldenable 
 
 ""Copilot
@@ -362,6 +368,7 @@ nnoremap <silent> <leader>rr :call RunInSidePanel()<CR>
 
 ""Mini-plugins
 """trim whitespace
+command! -range=% Trim keeppatterns <line1>,<line2>s/\s\+$//e
 xnoremap <leader>tw :<C-u>keeppatterns '<,'>s/^\s*\(.\{-}\)\s*$/\1/e<CR>gv
 :command! -range Encrypt :'<,'>!gpg -ca --s2k-count 65011712
 :command! -range Decrypt :'<,'>!gpg -dq
@@ -376,17 +383,17 @@ nnoremap <leader>ba :exe 'sign place ' . line('.') . ' name=MyBookmark line=' . 
 nnoremap <leader>bd :exec 'sign unplace ' . line('.')<CR>
 nnoremap <leader>bl :sign list<CR>
 
-" Nearest ancestor of {path} containing a .obsidian directory, i.e. the vault
+" Nearest ancestor of {path} containing a .git directory, used as the notes
 " root that bare wikilinks resolve against. Falls back to the directory
-" containing {path} when there is no vault.
+" containing {path} when there is no repository marker.
 fun! NFH_vault_root(path) abort
   let l:dir = fnamemodify(a:path, ':p:h')
-  let l:marker = finddir('.obsidian', l:dir . ';')
+  let l:marker = finddir('.git', l:dir . ';')
   if empty(l:marker)
     return l:dir
   endif
   " strip the trailing slash fnamemodify(':p') puts on directories, so a
-  " single ':h' reliably drops the .obsidian component itself
+  " single ':h' reliably drops the .git component itself
   let l:marker = substitute(fnamemodify(l:marker, ':p'), '/\+$', '', '')
   return fnamemodify(l:marker, ':h')
 endfun
@@ -446,6 +453,9 @@ endfun
 " gx for notes: an image wikilink under the cursor opens in feh, anything else
 " falls through to the normal system handler so plain URLs keep working.
 fun! NFH_gx() abort
+  if has('nvim') && luaeval('_G.NFH_math.preview(true)')
+    return
+  endif
   let l:target = NFH_link_under_cursor()
   if !empty(l:target) && NFH_is_image(l:target)
     let l:path = NFH_resolve_link(l:target, expand('%:p'))
@@ -471,9 +481,22 @@ fun! NFH_gx() abort
   endif
 endfun
 
+if has('nvim')
+  let s:nfh_math = fnamemodify(resolve(expand('<sfile>:p')), ':h') . '/scripts/math-preview/preview.lua'
+  call luaeval('(function(path) _G.NFH_math = dofile(path) return true end)(_A)', s:nfh_math)
+  command! NFHMath lua _G.NFH_math.preview(false)
+  command! NFHMathLine lua _G.NFH_math.preview_line()
+  command! -range NFHMathSelection lua _G.NFH_math.preview_selection()
+endif
+
 augroup NFHNoteMappings
   autocmd!
   autocmd FileType markdown nnoremap <buffer> <silent> gx :call NFH_gx()<CR>
+  autocmd FileType markdown xnoremap <buffer> <silent> gx :NFHMathSelection<CR>
+  " In terminal-normal mode, prefer delimited math under the cursor, then
+  " treat the current output line as raw TeX. Terminal input mode is untouched.
+  autocmd TermOpen * nnoremap <buffer> <silent> gx :if !luaeval('_G.NFH_math.preview(true)') \| NFHMathLine \| endif<CR>
+  autocmd TermOpen * xnoremap <buffer> <silent> gx :NFHMathSelection<CR>
 augroup END
 
 fun! NFH_note_pngs() abort
