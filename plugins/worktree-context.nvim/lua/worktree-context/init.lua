@@ -4,6 +4,7 @@ local owned_maps, commands = {}, {}
 local group
 local default_statusline
 local active_repo, restoring
+local recovery_repo, recovering
 
 local function git(path, args)
   local argv = { 'git', '-C', path }
@@ -46,6 +47,7 @@ function M.relative_path(path)
 end
 
 function M.list(path)
+  if not path then M.ensure_cwd() end
   local output, err = git(path or vim.fn.getcwd(), { 'worktree', 'list', '--porcelain', '-z' })
   if not output then return nil, err end
   local trees, entry = {}, nil
@@ -70,6 +72,19 @@ end
 local function repository_id(root)
   local path = git(root, { 'rev-parse', '--path-format=absolute', '--git-common-dir' })
   return path and canonical(vim.trim(path))
+end
+
+-- The shared Git directory survives removal (and pruning) of a linked tree.
+-- Keep it independently of persistence, since cwd can disappear mid-session.
+function M.ensure_cwd()
+  if recovering or vim.fn.isdirectory(vim.fn.getcwd()) == 1 then return end
+  if not recovery_repo then return end
+  local trees = M.list(recovery_repo)
+  if not trees or #trees == 0 then return end
+  recovering = true
+  local ok, err = pcall(M.switch, trees[1].path)
+  recovering = false
+  if not ok then notify(err) end
 end
 
 local function state_path(repo)
@@ -101,6 +116,7 @@ local function remember_worktree(repo, root)
 end
 
 local function refresh()
+  M.ensure_cwd()
   local root = M.root()
   if not root then indicator = ''; return end
   local branch = git(root, { 'symbolic-ref', '--quiet', '--short', 'HEAD' })
@@ -128,7 +144,7 @@ local function reroot_tree()
 end
 
 function M.switch(path)
-  local trees, err = M.list()
+  local trees, err = M.list(recovering and recovery_repo or nil)
   if not trees then notify(err); return false end
   path = canonical(path)
   local found = false
@@ -210,13 +226,16 @@ function M.disable()
   default_statusline = nil
   commands, owned_maps, indicator, previous = {}, {}, '', nil
   active_repo, restoring = nil, false
+  recovery_repo, recovering = nil, false
 end
 
 local function enter_repository()
-  if restoring or not config.remember then return end
+  if restoring then return end
   local root = M.root()
   local repo = root and repository_id(root)
+  recovery_repo = repo
   if not repo then active_repo, previous = nil, nil; return end
+  if not config.remember then return end
   if repo ~= active_repo then
     active_repo, previous = repo, nil
     local saved = remembered_worktree(repo)
@@ -269,8 +288,11 @@ function M.setup(opts)
     refresh()
   end })
   vim.api.nvim_create_autocmd('FocusGained', { group = group, callback = refresh })
+  -- Command mappings such as :FzfLua need a valid cwd before they execute.
+  vim.api.nvim_create_autocmd('CmdlineEnter', { group = group, callback = M.ensure_cwd })
   local tree_busy = false
   vim.api.nvim_create_autocmd('BufEnter', { group = group, callback = function()
+    M.ensure_cwd()
     if vim.bo.filetype == 'nerdtree' and not tree_busy then
       tree_busy = true
       reroot_tree()
