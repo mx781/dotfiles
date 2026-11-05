@@ -130,7 +130,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   , ((winMask, xK_slash), spawn "wmctrl -lx | awk '{print $1 \" \" $3 \" \" substr($0, index($0,$5))}' | dmenu -l 10 -i | awk '{print $1}' |   xargs -r wmctrl -ia")
   -- , ((winMask, xK_r), spawn "rofi -show ssh")
   -- , ((winMask, xK_f), spawn "rofi -show fb -modi fb:~/linux/rofi-file-browser.sh")
-  , ((winMask, xK_q), spawn "killall conky dzen2 trayer redshift && sleep 1" >> (restart "/home/maksis/.xmonad/xmonad-x86_64-linux" True))
+  , ((winMask, xK_q), spawn "killall conky dzen2 trayer" >> (restart "/home/maksis/.xmonad/xmonad-x86_64-linux" True))
   , ((winMask .|. shiftMask, xK_l), spawn "xsecurelock")
 
 
@@ -279,7 +279,10 @@ myTrayer = "trayer --edge top --align right --SetDockType true --expand true --t
 myStartup = do
   docksStartupHook
   spawn myTrayer
-  spawn "redshift"
+  -- Keep Redshift alive across WM reloads: overlapping exit/start fades can
+  -- flicker and make a new instance preserve an already tinted gamma ramp.
+  -- -P starts from neutral ramps if Redshift does need to be launched.
+  spawn "pgrep -u \"$(id -u)\" -x redshift >/dev/null || exec redshift -P"
   return()
 
 myBitmapsDir = "/home/maksis/.xmonad/dzen2"
