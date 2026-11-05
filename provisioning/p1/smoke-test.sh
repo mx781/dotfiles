@@ -415,6 +415,13 @@ check_dotfiles() {
     else
         fail bash-startup 'interactive Bash returned non-zero; see log'
     fi
+    # Trixie ships an alacritty terminfo, so Alacritty runs with TERM=alacritty;
+    # the prompt must still emit the OSC 0 title for window lookup by cwd.
+    if run_user env TERM=alacritty bash -ic 'printf %s "$PS1"' 2>>"$log" | grep -qF '\e]0;'; then
+        pass bash-window-title
+    else
+        fail bash-window-title 'PS1 sets no window title under TERM=alacritty'
+    fi
     if [[ -x $repo/scripts/theme ]] && run_user "$repo/scripts/theme" apply >>"$log" 2>&1; then
         pass theme-generation
     else
