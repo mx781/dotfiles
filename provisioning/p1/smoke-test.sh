@@ -316,7 +316,7 @@ EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|swapfile-active|sudo-access|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
         report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
-        report_checks 'Desktop applications' '^(command:(blender|brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|Telegram|slack|vlc|nvim|vim)|blender-version|nvim-|vim-nvim|gopass-cli|screenshot:|visual-cleanup)'
+        report_checks 'Desktop applications' '^(command:(blender|brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|rclone|Telegram|slack|vlc|nvim|vim)|blender-version|nvim-|vim-nvim|gopass-cli|rclone-version|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
         report_screenshot alacritty-nvim 'Alacritty + Neovim glyph fixture'
@@ -467,7 +467,7 @@ check_developer() {
 }
 
 check_desktop_apps() {
-    local commands=(blender brave-browser chromium firefox gopass libreoffice pcmanfm Telegram slack nvim vim)
+    local commands=(blender brave-browser chromium firefox gopass libreoffice pcmanfm rclone Telegram slack nvim vim)
     local command
     for command in "${commands[@]}"; do check_command "$command"; done
     if run_user nvim --headless '+lua assert(pcall(require, "nvim-treesitter"))' '+qall' >>"$log" 2>&1; then
@@ -494,6 +494,16 @@ check_desktop_apps() {
         pass gopass-cli
     else
         fail gopass-cli
+    fi
+    # P1 installs rclone from upstream precisely to skip Debian 13's 1.60.1.
+    local rclone_floor=1.75.0 rclone_version
+    rclone_version=$(run_user rclone version 2>>"$log" | awk 'NR==1 {print $2}')
+    rclone_version=${rclone_version#v}
+    if [[ -n $rclone_version ]] &&
+        [[ $(printf '%s\n%s\n' "$rclone_version" "$rclone_floor" | sort -V | head -n 1) == "$rclone_floor" ]]; then
+        pass rclone-version "$rclone_version"
+    else
+        fail rclone-version "expected >= $rclone_floor, found ${rclone_version:-none}"
     fi
 }
 

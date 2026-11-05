@@ -175,3 +175,14 @@
     src: /opt/blender-5.1.2-linux-x64/blender
     dest: /usr/local/bin/blender
     state: link
+
+# Debian 13 ships rclone 1.60.1; the upstream package tracks current backends.
+- name: Download rclone 1.75.2 Debian package
+  ansible.builtin.get_url:
+    url: https://downloads.rclone.org/v1.75.2/rclone-v1.75.2-linux-amd64.deb
+    dest: /var/cache/p1-rclone-1.75.2-linux-amd64.deb
+    mode: '0644'
+
+- name: Install rclone 1.75.2
+  ansible.builtin.apt:
+    deb: /var/cache/p1-rclone-1.75.2-linux-amd64.deb
