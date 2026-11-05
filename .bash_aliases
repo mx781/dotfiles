@@ -20,10 +20,13 @@ alias config-keyb="setxkbmap lv_pok3r_p1"
 # cmds to launch on login
 alias config-startup="gnome-session-properties"
 
-# screen
-alias single="$HOME/.screenlayout/single.sh"
-alias docked="$HOME/.screenlayout/docked.sh"
-alias home="$HOME/.screenlayout/home.sh"
+# Screen aliases come from this computer's provisioned layout directory.
+for screenlayout in "$HOME"/.screenlayout/*.sh; do
+    [ -f "$screenlayout" ] || continue
+    screenlayout_name=${screenlayout##*/}
+    alias "${screenlayout_name%.sh}=\"$screenlayout\""
+done
+unset screenlayout screenlayout_name
 
 alias lockscreen="gnome-screensaver-command -l"
 alias screensaver-on="xset s off -dpms"

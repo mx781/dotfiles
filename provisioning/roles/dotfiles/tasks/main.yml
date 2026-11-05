@@ -78,57 +78,26 @@
       {{ target_home }}/.screenlayout exists but is neither a directory nor a
       symlink. Move it aside before rerunning the dotfiles role.
 
-- name: Create the user screen-layout directory when absent
+- name: Back up the existing local screen-layout directory
+  ansible.builtin.command:
+    argv:
+      - mv
+      - --
+      - "{{ target_home }}/.screenlayout"
+      - "{{ target_home }}/.screenlayout.backup-{{ ansible_date_time.iso8601_basic_short }}"
+  when:
+    - workstation_screenlayout.stat.isdir | default(false)
+    - not (workstation_screenlayout.stat.islnk | default(false))
+
+- name: Link this workstation's screen layouts
   ansible.builtin.file:
-    path: "{{ target_home }}/.screenlayout"
-    state: directory
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    mode: '0755'
-  when: not workstation_screenlayout.stat.exists
-
-- name: Find repository screen layouts
-  ansible.builtin.find:
-    paths: "{{ dotfiles_repo }}/.screenlayout"
-    file_type: file
-    recurse: false
-  register: repository_screenlayouts
-
-- name: Inspect target screen layouts
-  ansible.builtin.stat:
-    path: "{{ target_home }}/.screenlayout/{{ item.path | basename }}"
-    follow: false
-  loop: "{{ repository_screenlayouts.files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  register: target_screenlayouts
-
-- name: Link repository screen layouts that are absent locally
-  ansible.builtin.file:
-    src: "{{ item.item.path }}"
-    dest: "{{ target_home }}/.screenlayout/{{ item.item.path | basename }}"
+    src: "{{ dotfiles_repo }}/.screenlayout/{{ workstation_profile }}"
+    dest: "{{ target_home }}/.screenlayout"
     state: link
+    force: true
     follow: false
     owner: "{{ target_user }}"
     group: "{{ target_user }}"
-  loop: "{{ target_screenlayouts.results }}"
-  loop_control:
-    label: "{{ item.item.path | basename }}"
-  when: not item.stat.exists
-
-- name: Report preserved local screen layouts
-  ansible.builtin.debug:
-    msg: >-
-      Preserving existing {{ target_home }}/.screenlayout/{{ item.item.path | basename }};
-      the repository version was not linked over it.
-  loop: "{{ target_screenlayouts.results }}"
-  loop_control:
-    label: "{{ item.item.path | basename }}"
-  when: >-
-    item.stat.exists and not (
-      item.stat.islnk | default(false) and
-      item.stat.lnk_source | default('') == item.item.path
-    )
 
 - name: Check for the SSH identity that decrypts the client config
   ansible.builtin.stat:

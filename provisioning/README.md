@@ -53,9 +53,11 @@ ansible-playbook site.yml --ask-become-pass \
   -e workstation_profile=pucc --tags aws-cli
 ```
 
-The dotfiles role preserves an existing `~/.screenlayout` directory. It links
-repository layouts only when the destination filename is absent, so local
-machine-specific layouts and same-name overrides are not replaced.
+The dotfiles role links `~/.screenlayout` to `.screenlayout/p1` or
+`.screenlayout/pucc` according to the selected profile. An existing local directory
+is first moved to `~/.screenlayout.backup-<timestamp>`. Shell aliases are loaded
+from that profile's scripts. Each layout enables exactly its listed outputs and
+disables every other output reported by XRandR.
 
 The `backlight` role installs a profile-specific udev permission rule, adds the
 target user to `video`, and verifies write access. After its first run, log out
