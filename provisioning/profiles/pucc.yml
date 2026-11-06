@@ -1,11 +1,10 @@
 ---
 workstation_name: Pucc
-workstation_debian_version: '12'
-workstation_debian_release: bookworm
+workstation_debian_version: '13'
+workstation_debian_release: trixie
 workstation_debian_suites:
-  - bookworm
-  - bookworm-updates
-  - bookworm-backports
+  - trixie
+  - trixie-updates
 workstation_theme: orange
 workstation_backlight_enabled: true
 workstation_backlight_device: intel_backlight

@@ -1,4 +1,4 @@
-# Pucc: Debian 12 workstation provisioning
+# Pucc: Debian 13 workstation provisioning
 
 Pucc uses the same post-install model as P1:
 
@@ -17,14 +17,19 @@ setup do not drift between the two machines. It also enables the NVIDIA role
 for its RTX 2000 and PRIME render offload. Its profile omits only P1's
 mirrored-storage role.
 
-## First run after Debian 12 installation
+## First run after Debian 13 installation
 
-Install a minimal Debian 12 (bookworm) system with an administrative user and
+Install a minimal Debian 13 (trixie) system with an administrative user and
 working network access, then clone this repository:
 
-Provisioning configures `bookworm`, `bookworm-updates`, and
-`bookworm-backports`, with `main contrib non-free non-free-firmware`, plus the
-separate `bookworm-security` archive.
+Provisioning configures `trixie` and `trixie-updates`, with
+`main contrib non-free non-free-firmware`, plus the separate `trixie-security`
+archive, matching P1's Debian archives.
+
+This profile is for a fresh Debian 13 installation, not an in-place upgrade
+from Debian 12. Restore personal data selectively: leave the old RT713 UCM
+overrides and WirePlumber configuration in the backup until stock Debian 13
+audio has been tested on Pucc.
 
 ```sh
 git clone --recurse-submodules https://github.com/mx781/dotfiles "$HOME/hub/dotfiles"

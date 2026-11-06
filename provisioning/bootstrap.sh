@@ -100,9 +100,6 @@ script_dir="$dotfiles_dir/provisioning"
 }
 debian_release=$VERSION_CODENAME
 debian_suites="${debian_release} ${debian_release}-updates"
-if [[ $workstation_profile == pucc ]]; then
-    debian_suites+=" ${debian_release}-backports"
-fi
 
 export DEBIAN_FRONTEND=noninteractive
 

@@ -6,7 +6,7 @@ two profiles:
 | Profile | Debian | Theme | Storage role | NVIDIA PRIME role |
 | --- | --- | --- | --- | --- |
 | `p1` | 13 (`trixie`) | teal | enabled | enabled |
-| `pucc` | 12 (`bookworm`) | orange | disabled | enabled (RTX 2000) |
+| `pucc` | 13 (`trixie`) | orange | disabled | enabled (RTX 2000) |
 
 Debian Installer owns disks, boot, encryption, hostname, and the first user.
 The provisioning library owns repeatable post-install configuration.
