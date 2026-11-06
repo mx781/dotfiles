@@ -50,6 +50,18 @@ also creates an 8 GiB swapfile by default, encrypted at rest when Debian
 Installer placed the root filesystem in LUKS. Override its size at playbook invocation with
 `-e workstation_swapfile_size_mb=VALUE` when needed.
 
+Pucc additionally installs Postman from its official Linux archive (`apps`,
+`postman` tags) and DisplayLink from Synaptics' signed APT repository (`drivers`,
+`displaylink` tags), including kernel headers and DKMS. Postman is available as
+`postman` and through its desktop launcher; restore its data from
+`~/.config/Postman` and `~/Postman` after installation. Existing Postman installs
+are preserved on reruns.
+
+Synaptics officially targets Ubuntu, so test DisplayLink with the physical dock
+after rebooting Debian 13. With Secure Boot enabled, the DKMS signing key may need
+MOK enrollment before the `evdi` module can load. Test external displays and
+suspend/resume; package installation alone does not validate dock operation.
+
 Verify render offload after rebooting into the installed driver:
 
 ```sh

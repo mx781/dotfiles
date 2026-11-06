@@ -1,0 +1,50 @@
+---
+- name: Install Postman runtime dependencies
+  ansible.builtin.apt:
+    name:
+      - libasound2t64
+      - libgbm1
+      - libgtk-3-0t64
+      - libnss3
+    state: present
+    update_cache: true
+
+- name: Check whether Postman is installed
+  ansible.builtin.stat:
+    path: /opt/Postman/Postman
+  register: workstation_postman
+
+- name: Download the official Postman Linux archive
+  ansible.builtin.get_url:
+    url: https://dl.pstmn.io/download/latest/linux64
+    dest: /var/cache/pucc-postman-linux-x64.tar.gz
+    mode: '0644'
+  when: not workstation_postman.stat.exists
+
+- name: Install Postman
+  ansible.builtin.unarchive:
+    src: /var/cache/pucc-postman-linux-x64.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: /opt/Postman/Postman
+
+- name: Link the Postman executable
+  ansible.builtin.file:
+    src: /opt/Postman/Postman
+    dest: /usr/local/bin/postman
+    state: link
+
+- name: Install the Postman desktop launcher
+  ansible.builtin.copy:
+    dest: /usr/share/applications/postman.desktop
+    mode: '0644'
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Postman
+      Comment=API development client
+      Exec=/usr/local/bin/postman %U
+      Icon=/opt/Postman/app/resources/app/assets/icon.png
+      Terminal=false
+      Categories=Development;
+      MimeType=x-scheme-handler/postman;

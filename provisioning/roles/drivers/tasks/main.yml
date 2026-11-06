@@ -10,3 +10,8 @@
     name: libspa-0.2-bluetooth
     state: present
     install_recommends: false
+
+- name: Install Pucc's DisplayLink dock driver
+  ansible.builtin.import_tasks: displaylink.yml
+  when: workstation_profile == 'pucc'
+  tags: [displaylink]

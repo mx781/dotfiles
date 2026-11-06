@@ -1,0 +1,21 @@
+---
+# Use the same signed Synaptics repository as Pucc's previous installation.
+# Synaptics targets Ubuntu; dock functionality still needs checking on Debian.
+- name: Download the Synaptics repository keyring package
+  ansible.builtin.get_url:
+    url: https://www.synaptics.com/sites/default/files/Ubuntu/pool/stable/main/all/synaptics-repository-keyring.deb
+    dest: /var/cache/pucc-synaptics-repository-keyring.deb
+    mode: '0644'
+
+- name: Install the Synaptics signing key and APT repository
+  ansible.builtin.apt:
+    deb: /var/cache/pucc-synaptics-repository-keyring.deb
+
+- name: Install DisplayLink and matching kernel headers
+  ansible.builtin.apt:
+    name:
+      - dkms
+      - linux-headers-amd64
+      - displaylink-driver
+    state: present
+    update_cache: true

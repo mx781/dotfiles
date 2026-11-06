@@ -1,4 +1,9 @@
 ---
+- name: Install Pucc's Postman client
+  ansible.builtin.import_tasks: postman.yml
+  when: workstation_profile == 'pucc'
+  tags: [postman]
+
 - name: Create APT keyring directory for application repositories
   ansible.builtin.file:
     path: /etc/apt/keyrings
