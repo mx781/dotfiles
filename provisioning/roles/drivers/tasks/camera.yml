@@ -8,12 +8,21 @@
 # the newer backports kernel.
 #
 # The ISYS only delivers raw Bayer frames; libcamera's simple pipeline with
-# its software ISP turns them into usable video. Applications reach it through
-# PipeWire's libcamera plugin and the xdg-desktop-portal Camera portal, so the
-# sensor only powers up while an application holds the stream. WirePlumber
-# loads the plugin on its next start (`systemctl --user restart wireplumber`).
+# its software ISP turns them into usable video. Applications get it through
+# a v4l2loopback device fed by the `webcam` user service, not PipeWire's
+# libcamera plugin:
+# - The software ISP crops rather than scales smaller requested sizes, so a
+#   browser asking for 640x480 got a 2-3x zoomed centre of the sensor.
+#   The relay always captures the full 1920x1080 and scales to 1280x720.
+# - libcamera 0.4 dies with SIGFPE in its AGC for some sizes (640x360, which
+#   Chromium requests); inside PipeWire that took the audio graph down too.
+# - Electron apps and Chromium without flags only speak V4L2.
+# With exclusive_caps the device advertises capture only while the relay
+# runs, so applications list "Pucc Webcam" exactly when it delivers frames.
+# Start it with `systemctl --user start webcam` and stop it after the call;
+# the sensor, its LED, and about half a core stay busy while it runs.
 
-- name: Install DKMS, kernel headers, libcamera, and the PipeWire camera portal
+- name: Install DKMS, kernel headers, libcamera, and the webcam relay
   ansible.builtin.apt:
     name:
       - dkms
@@ -21,27 +30,13 @@
       - libcamera-ipa
       - libcamera-tools
       - v4l-utils
-      - pipewire-libcamera
-      - xdg-desktop-portal
-      - xdg-desktop-portal-gtk
+      - v4l2loopback-dkms
+      - gstreamer1.0-libcamera
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-tools
     state: present
     install_recommends: false
-
-# XMonad sets no XDG_CURRENT_DESKTOP, so the portal has no desktop-specific
-# configuration to match and needs an explicit backend for permission dialogs.
-- name: Create the system portal configuration directory
-  ansible.builtin.file:
-    path: /etc/xdg/xdg-desktop-portal
-    state: directory
-    mode: '0755'
-
-- name: Use the GTK portal backend outside a desktop environment
-  ansible.builtin.copy:
-    dest: /etc/xdg/xdg-desktop-portal/portals.conf
-    mode: '0644'
-    content: |
-      [preferred]
-      default=gtk
 
 - name: Create the OV02E10 DKMS source directory
   ansible.builtin.file:
@@ -108,3 +103,36 @@
   when:
     - not ansible_check_mode
     - ansible_kernel is match('6\.1[2-5]\.')
+
+# video60 keeps the loopback clear of the IPU6's 48 ISYS capture nodes.
+- name: Configure the webcam loopback device
+  ansible.builtin.copy:
+    dest: "{{ item.dest }}"
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop:
+    - dest: /etc/modprobe.d/pucc-webcam.conf
+      content: |
+        options v4l2loopback devices=1 video_nr=60 card_label="Pucc Webcam" exclusive_caps=1
+    - dest: /etc/modules-load.d/pucc-webcam.conf
+      content: |
+        v4l2loopback
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Load the webcam loopback device
+  ansible.builtin.command:
+    argv: [/usr/sbin/modprobe, v4l2loopback]
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Install the webcam relay user service
+  ansible.builtin.copy:
+    dest: /etc/systemd/user/webcam.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Relay the IPU6 camera to the Pucc Webcam loopback device
+
+      [Service]
+      ExecStart=/usr/bin/gst-launch-1.0 -e libcamerasrc ! video/x-raw,width=1920,height=1080 ! videoconvert n-threads=4 ! videoscale n-threads=4 ! video/x-raw,format=YUY2,width=1280,height=720 ! v4l2sink device=/dev/video60 sync=false
