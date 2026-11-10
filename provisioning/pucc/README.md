@@ -51,14 +51,18 @@ Installer placed the root filesystem in LUKS. Override its size at playbook invo
 `-e workstation_swapfile_size_mb=VALUE` when needed.
 
 Pucc additionally installs Postman from its official Linux archive (`apps`,
-`postman` tags) and DisplayLink from Synaptics' signed APT repository (`drivers`,
-`displaylink` tags), including kernel headers and DKMS. Postman is available as
+`postman` tags) and DisplayLink from Debian's `non-free` archive (`drivers`,
+`displaylink` tags), with Debian's `evdi-dkms`, `libevdi1`, kernel headers, and
+DKMS. The old Synaptics Ubuntu repository is removed: its `evdi` package failed
+to configure on Pucc and blocked later APT operations. An existing newer
+DisplayLink userspace driver is preserved rather than downgraded; fresh installs
+use Debian's packaged driver. Postman is available as
 `postman` and through its desktop launcher; restore its data from
 `~/.config/Postman` and `~/Postman` after installation. Existing Postman installs
 are preserved on reruns.
 
-Synaptics officially targets Ubuntu, so test DisplayLink with the physical dock
-after rebooting Debian 13. With Secure Boot enabled, the DKMS signing key may need
+Test DisplayLink with the physical dock after rebooting Debian 13.
+With Secure Boot enabled, the DKMS signing key may need
 MOK enrollment before the `evdi` module can load. Test external displays and
 suspend/resume; package installation alone does not validate dock operation.
 

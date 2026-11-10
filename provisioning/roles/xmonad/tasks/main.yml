@@ -2,6 +2,9 @@
 - name: Install XMonad build dependencies
   ansible.builtin.apt:
     name:
+      # The pinned Stack GHC 8.6.5 selects ld.gold explicitly. Debian 13's
+      # ordinary binutils package no longer supplies it.
+      - binutils-gold
       - libxfixes-dev
       - dzen2
       - haskell-stack
@@ -17,6 +20,7 @@
       - xsel
     state: present
     update_cache: true
+  tags: [xmonad-build-deps]
 
 - name: Install Clipnotify from its pinned upstream revision
   ansible.builtin.git:

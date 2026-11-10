@@ -9,6 +9,7 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/slack.list
     state: absent
+  tags: [always]
 
 - name: Remove installer CD-only APT source
   ansible.builtin.file:
@@ -74,6 +75,13 @@
     name: "{{ target_user }}"
     groups: sudo
     append: true
+
+- name: Install Bubblewrap for application sandboxing
+  ansible.builtin.apt:
+    name: bubblewrap
+    state: present
+    update_cache: true
+  tags: [bubblewrap]
 
 - name: Install base workstation packages
   ansible.builtin.apt:

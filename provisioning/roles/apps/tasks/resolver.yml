@@ -1,0 +1,43 @@
+---
+- name: Configure NetworkManager to supply DNS to systemd-resolved
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/90-pucc-resolved.conf
+    mode: '0644'
+    content: |
+      [main]
+      dns=systemd-resolved
+
+# resolved's newly installed D-Bus policy must be loaded before NM can send
+# per-link DNS settings. Reload D-Bus configuration without restarting it.
+- name: Reload D-Bus policy after installing the resolver
+  ansible.builtin.systemd_service:
+    name: dbus.service
+    state: reloaded
+
+# A resolver started before its new D-Bus policy was loaded can stay running
+# without owning org.freedesktop.resolve1. Merely starting it again is a no-op.
+- name: Restart the system resolver after loading D-Bus policy
+  ansible.builtin.systemd_service:
+    name: systemd-resolved.service
+    enabled: true
+    state: restarted
+
+- name: Verify the resolver has registered its D-Bus interface
+  ansible.builtin.command: busctl --system --timeout=5s status org.freedesktop.resolve1
+  register: desktop_resolver_bus
+  changed_when: false
+  retries: 3
+  delay: 1
+  until: desktop_resolver_bus.rc == 0
+
+- name: Reload NetworkManager DNS configuration without reconnecting Wi-Fi
+  ansible.builtin.command: nmcli general reload conf,dns-full
+  changed_when: true
+
+- name: Wait for Debian archive name resolution
+  ansible.builtin.command: getent ahostsv4 deb.debian.org
+  register: desktop_dns_check
+  changed_when: false
+  retries: 5
+  delay: 2
+  until: desktop_dns_check.rc == 0

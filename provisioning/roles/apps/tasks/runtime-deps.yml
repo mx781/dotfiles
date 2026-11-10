@@ -1,0 +1,49 @@
+---
+# Repair an existing resolver installation before online APT operations.
+# Install runtime dependencies in one transaction, then ensure NetworkManager
+# supplies DNS to the resolver before any subsequent package downloads.
+- name: Check whether systemd-resolved is already installed
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/systemd-resolved.service
+  register: desktop_resolved
+
+- name: Repair DNS before downloading desktop dependencies
+  ansible.builtin.include_tasks:
+    file: resolver.yml
+    apply:
+      tags: [desktop-runtime-deps]
+  when: desktop_resolved.stat.exists
+
+- name: Install Debian 13 desktop runtime dependencies together
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - dbus
+      - iw
+      - jq
+      - libdbus-glib-1-2
+      - libglib2.0-0t64
+      - libglib2.0-bin
+      - libnss3-tools
+      - libnss-resolve
+      - libpcap0.8t64
+      - libqt6core6t64
+      - libqt6sql6
+      - libqt6webenginecore6
+      - libqt6webenginecore6-bin
+      - libqt6webenginewidgets6
+      - libqt6webview6
+      - net-tools
+      - qt6-qpa-plugins
+      - systemd-coredump
+      - systemd-resolved
+    state: present
+    update_cache: true
+
+- name: Connect the installed resolver to NetworkManager
+  ansible.builtin.include_tasks:
+    file: resolver.yml
+    apply:
+      tags: [desktop-runtime-deps]
+

@@ -1,4 +1,9 @@
 ---
+- name: Install Pucc's desktop runtime dependencies
+  ansible.builtin.import_tasks: runtime-deps.yml
+  when: workstation_profile == 'pucc'
+  tags: [desktop-runtime-deps]
+
 - name: Install Pucc's Postman client
   ansible.builtin.import_tasks: postman.yml
   when: workstation_profile == 'pucc'

@@ -1,21 +1,47 @@
 ---
-# Use the same signed Synaptics repository as Pucc's previous installation.
-# Synaptics targets Ubuntu; dock functionality still needs checking on Debian.
-- name: Download the Synaptics repository keyring package
-  ansible.builtin.get_url:
-    url: https://www.synaptics.com/sites/default/files/Ubuntu/pool/stable/main/all/synaptics-repository-keyring.deb
-    dest: /var/cache/pucc-synaptics-repository-keyring.deb
+# Debian 13 packages both DisplayLink and its EVDI kernel module. The vendor's
+# Ubuntu repository selects a different `evdi` package that failed to configure
+# on Pucc, leaving dpkg blocked for later provisioning stages.
+- name: Remove the obsolete Synaptics Ubuntu repository
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/synaptics.list
+    state: absent
+
+- name: Prefer Debian's DisplayLink and EVDI packages
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/pucc-displaylink
     mode: '0644'
+    content: |
+      Package: displaylink-driver evdi-dkms libevdi1
+      Pin: release o=Debian
+      Pin-Priority: 990
 
-- name: Install the Synaptics signing key and APT repository
-  ansible.builtin.apt:
-    deb: /var/cache/pucc-synaptics-repository-keyring.deb
-
-- name: Install DisplayLink and matching kernel headers
+# Keep an already installed newer userspace driver; state=present and a pin
+# below 1000 do not downgrade it. Fresh installs use Debian's driver.
+- name: Install Debian DisplayLink, EVDI, and matching kernel headers
   ansible.builtin.apt:
     name:
       - dkms
       - linux-headers-amd64
+      - evdi-dkms
+      - libevdi1
       - displaylink-driver
     state: present
     update_cache: true
+
+# A fresh install may still be running the installer's older kernel while the
+# headers metapackage tracks the new kernel. Validate a completed DKMS build
+# without requiring a reboot midway through provisioning.
+- name: Verify EVDI has a completed kernel-module installation
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/dkms
+      - status
+      - -m
+      - evdi
+  register: workstation_evdi_dkms
+  changed_when: false
+  failed_when: >-
+    workstation_evdi_dkms.rc != 0 or
+    ': installed' not in workstation_evdi_dkms.stdout
+  when: not ansible_check_mode
