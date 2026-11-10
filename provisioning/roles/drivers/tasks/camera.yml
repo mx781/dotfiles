@@ -1,0 +1,87 @@
+# Pucc's user-facing camera is an OmniVision OV02E10 (ACPI OVTI02E1) behind
+# the Meteor Lake IPU6 and the Intel Visual Sensing Controller. Debian 13's
+# 6.12 kernel already ships every other piece: the IPU6 ISYS driver, IVSC,
+# the LJCA USB bridge for sensor GPIOs, ipu_bridge's OVTI02E1 entry, and the
+# IPU6/IVSC firmware. Only the sensor driver is missing; it was mainlined in
+# Linux 6.16. Building that one file out of tree keeps the stock kernel and
+# with it the Debian NVIDIA and EVDI DKMS modules, which do not all build on
+# the newer backports kernel.
+#
+# The ISYS only delivers raw Bayer frames; libcamera's simple pipeline with
+# its software ISP turns them into usable video.
+
+- name: Install DKMS, kernel headers, and libcamera tools
+  ansible.builtin.apt:
+    name:
+      - dkms
+      - linux-headers-amd64
+      - libcamera-ipa
+      - libcamera-tools
+      - v4l-utils
+    state: present
+
+- name: Create the OV02E10 DKMS source directory
+  ansible.builtin.file:
+    path: /usr/src/ov02e10-6.16
+    state: directory
+    mode: '0755'
+
+- name: Download the mainline v6.16 OV02E10 sensor driver
+  ansible.builtin.get_url:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/drivers/media/i2c/ov02e10.c?h=v6.16
+    dest: /usr/src/ov02e10-6.16/ov02e10.c
+    checksum: sha256:236e3fa27354bcad26f0accf8bf093051800f120cc62e8933a691bbaea3a8925
+    mode: '0644'
+  register: workstation_ov02e10_source
+
+# Kernels from 6.16 carry the driver in tree, so DKMS skips them.
+- name: Configure the OV02E10 DKMS module
+  ansible.builtin.copy:
+    dest: "/usr/src/ov02e10-6.16/{{ item.name }}"
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop:
+    - name: Makefile
+      content: |
+        obj-m := ov02e10.o
+    - name: dkms.conf
+      content: |
+        PACKAGE_NAME="ov02e10"
+        PACKAGE_VERSION="6.16"
+        BUILT_MODULE_NAME[0]="ov02e10"
+        DEST_MODULE_LOCATION[0]="/updates/dkms"
+        MAKE[0]="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build modules"
+        BUILD_EXCLUSIVE_KERNEL="^6\.1[2-5]\."
+        AUTOINSTALL="yes"
+  loop_control:
+    label: "{{ item.name }}"
+  register: workstation_ov02e10_config
+
+- name: Build and install OV02E10 for every kernel with headers
+  ansible.builtin.shell:
+    executable: /bin/sh
+    cmd: |
+      set -eu
+      if [ "{{ (workstation_ov02e10_source is changed or workstation_ov02e10_config is changed) | lower }}" = true ]; then
+        /usr/sbin/dkms remove ov02e10/6.16 --all >/dev/null 2>&1 || true
+      fi
+      /usr/sbin/dkms status ov02e10/6.16 | grep -q . || /usr/sbin/dkms add ov02e10/6.16
+      for build in /lib/modules/*/build; do
+        kernel=${build#/lib/modules/}
+        kernel=${kernel%/build}
+        case $kernel in 6.1[2-5].*) ;; *) continue ;; esac
+        /usr/sbin/dkms status ov02e10/6.16 -k "$kernel" | grep -q ': installed' && continue
+        /usr/sbin/dkms install ov02e10/6.16 -k "$kernel"
+        echo "installed for $kernel"
+      done
+  register: workstation_ov02e10_dkms
+  changed_when: "'installed for' in workstation_ov02e10_dkms.stdout"
+  when: not ansible_check_mode
+
+- name: Load the OV02E10 driver on the running kernel
+  ansible.builtin.command:
+    argv: [/usr/sbin/modprobe, ov02e10]
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ansible_kernel is match('6\.1[2-5]\.')

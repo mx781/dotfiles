@@ -15,3 +15,8 @@
   ansible.builtin.import_tasks: displaylink.yml
   when: workstation_profile == 'pucc'
   tags: [displaylink]
+
+- name: Install Pucc's IPU6 camera sensor driver
+  ansible.builtin.import_tasks: camera.yml
+  when: workstation_profile == 'pucc'
+  tags: [camera]
