@@ -8,9 +8,12 @@
 # the newer backports kernel.
 #
 # The ISYS only delivers raw Bayer frames; libcamera's simple pipeline with
-# its software ISP turns them into usable video.
+# its software ISP turns them into usable video. Applications reach it through
+# PipeWire's libcamera plugin and the xdg-desktop-portal Camera portal, so the
+# sensor only powers up while an application holds the stream. WirePlumber
+# loads the plugin on its next start (`systemctl --user restart wireplumber`).
 
-- name: Install DKMS, kernel headers, and libcamera tools
+- name: Install DKMS, kernel headers, libcamera, and the PipeWire camera portal
   ansible.builtin.apt:
     name:
       - dkms
@@ -18,7 +21,27 @@
       - libcamera-ipa
       - libcamera-tools
       - v4l-utils
+      - pipewire-libcamera
+      - xdg-desktop-portal
+      - xdg-desktop-portal-gtk
     state: present
+    install_recommends: false
+
+# XMonad sets no XDG_CURRENT_DESKTOP, so the portal has no desktop-specific
+# configuration to match and needs an explicit backend for permission dialogs.
+- name: Create the system portal configuration directory
+  ansible.builtin.file:
+    path: /etc/xdg/xdg-desktop-portal
+    state: directory
+    mode: '0755'
+
+- name: Use the GTK portal backend outside a desktop environment
+  ansible.builtin.copy:
+    dest: /etc/xdg/xdg-desktop-portal/portals.conf
+    mode: '0644'
+    content: |
+      [preferred]
+      default=gtk
 
 - name: Create the OV02E10 DKMS source directory
   ansible.builtin.file:
