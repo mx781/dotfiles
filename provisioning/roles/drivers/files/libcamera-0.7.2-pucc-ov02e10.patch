@@ -1,0 +1,150 @@
+--- a/src/ipa/libipa/camera_sensor_helper.cpp
++++ b/src/ipa/libipa/camera_sensor_helper.cpp
+@@ -688,6 +688,19 @@
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("ov08x40", CameraSensorHelperOv08x40)
+ 
++class CameraSensorHelperOv02e10 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperOv02e10()
++	{
++		/* From Linux kernel driver: 0x40 at 10bits. */
++		blackLevel_ = 4096;
++		/* Analogue gain register 0x10 is 1x; measured linear up to 0xf8. */
++		gain_ = AnalogueGainLinear{ 1, 0, 0, 16 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("ov02e10", CameraSensorHelperOv02e10)
++
+ class CameraSensorHelperOv2685 : public CameraSensorHelper
+ {
+ public:
+--- a/src/libcamera/sensor/camera_sensor_properties.cpp
++++ b/src/libcamera/sensor/camera_sensor_properties.cpp
+@@ -335,6 +335,24 @@
+ 				.hblankDelay = 3
+ 			},
+ 		} },
++		{ "ov02e10", {
++			.unitCellSize = { 1120, 1120 },
++			.testPatternModes = {
++				{ controls::draft::TestPatternModeOff, 0 },
++				{ controls::draft::TestPatternModeColorBars, 1 },
++			},
++			/*
++			 * Measured through the IPU6 CSI-2 frame start events: exposure
++			 * written at frame start N lands in frame N + 4, analogue gain
++			 * in frame N + 3. Blanking delays were not measured.
++			 */
++			.sensorDelays = {
++				.exposureDelay = 4,
++				.gainDelay = 3,
++				.vblankDelay = 4,
++				.hblankDelay = 4
++			},
++		} },
+ 		{ "ov2685", {
+ 			.unitCellSize = { 1750, 1750 },
+ 			.testPatternModes = {
+--- a/src/ipa/simple/algorithms/agc.cpp
++++ b/src/ipa/simple/algorithms/agc.cpp
+@@ -30,7 +30,7 @@
+  * The exposure is optimal when the mean sample value of the histogram is
+  * in the middle of the range.
+  */
+-static constexpr float kExposureOptimal = kExposureBinsCount / 2.0;
++static constexpr float kExposureOptimal = 2.2;
+ 
+ /*
+  * This implements the hysteresis for the exposure adjustment.
+@@ -53,13 +53,24 @@
+  * This replaces the fixed 10% bang-bang step with a proportional correction
+  * that converges smoothly and avoids overshooting near the target.
+  */
+-static constexpr float kExpProportionalGain = 0.04;
++static constexpr float kExpProportionalGain = 0.25;
+ 
+ /*
+  * Maximum multiplicative step per frame, to bound the correction when the
+  * scene changes dramatically.
+  */
+-static constexpr float kExpMaxStep = 0.15;
++/*
++ * Highlight protection: the share of pixels in the top quarter of the raw
++ * histogram (before white balance and gamma) that may be reached before the
++ * AGC darkens regardless of the mean, and the share above which it does not
++ * brighten.
++ */
++static constexpr unsigned int kHighlightFirstBin = SwIspStats::kYHistogramSize * 3 / 4;
++static constexpr float kHighlightMax = 0.035;
++static constexpr float kHighlightHold = 0.025;
++static constexpr float kHighlightGain = 4.0;
++
++static constexpr float kExpMaxStep = 0.25;
+ 
+ Agc::Agc()
+ {
+@@ -70,10 +81,31 @@
+ 	int32_t &exposure = frameContext.sensor.exposure;
+ 	double &again = frameContext.sensor.gain;
+ 
++	/*
++	 * Step from the last commanded values, and only once this frame was
++	 * captured with them; the gain readback is quantised to the sensor's
++	 * gain code, so compare it with a tolerance of one code step.
++	 */
++	const bool settled = exposure == context.activeState.agc.exposure &&
++			     std::abs(again - context.activeState.agc.again) <=
++				     context.configuration.agc.againMinStep;
++	exposure = context.activeState.agc.exposure;
++	again = context.activeState.agc.again;
++	if (!settled) {
++		LOG(IPASoftExposure, Debug)
++			<< "exposureMSV " << exposureMSV << " waiting exp "
++			<< exposure << " again " << again;
++		return;
++	}
++
+ 	double error = kExposureOptimal - exposureMSV;
+ 
+-	if (std::abs(error) <= kExposureSatisfactory)
++	if (std::abs(error) <= kExposureSatisfactory) {
++		LOG(IPASoftExposure, Debug)
++			<< "exposureMSV " << exposureMSV << " inband exp "
++			<< exposure << " again " << again;
+ 		return;
++	}
+ 
+ 	/*
+ 	 * Compute a proportional correction factor. The sign of the error
+@@ -189,6 +221,29 @@
+ 	}
+ 
+ 	float exposureMSV = (denom == 0 ? 0 : static_cast<float>(num) / denom);
++
++	unsigned int total = 0, highlights = 0, clipped = 0;
++	for (unsigned int i = 0; i < SwIspStats::kYHistogramSize; i++) {
++		total += histogram[i];
++		if (i >= kHighlightFirstBin)
++			highlights += histogram[i];
++		if (i >= SwIspStats::kYHistogramSize - 2)
++			clipped += histogram[i];
++	}
++	float highlightShare = total ? static_cast<float>(highlights) / total : 0;
++
++	LOG(IPASoftExposure, Debug)
++		<< "highlights " << highlightShare << " clipped "
++		<< (total ? static_cast<float>(clipped) / total : 0);
++
++	/* Express highlight limits through the MSV the controller acts on. */
++	const float upper = kExposureOptimal + kExposureSatisfactory;
++	if (highlightShare > kHighlightMax)
++		exposureMSV = std::max(exposureMSV,
++				       upper + (highlightShare - kHighlightMax) * kHighlightGain);
++	else if (highlightShare > kHighlightHold && exposureMSV < kExposureOptimal)
++		exposureMSV = kExposureOptimal;
++
+ 	updateExposure(context, frameContext, exposureMSV);
+ }
+ 

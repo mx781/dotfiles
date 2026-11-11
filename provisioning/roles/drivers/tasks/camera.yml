@@ -21,22 +21,95 @@
 # runs, so applications list "Pucc Webcam" exactly when it delivers frames.
 # Start it with `systemctl --user start webcam` and stop it after the call;
 # the sensor, its LED, and about half a core stay busy while it runs.
+#
+# The relay uses a patched libcamera 0.7.2 in /opt/libcamera-pucc rather than
+# Debian's 0.4, whose AGC hunted and blew out highlights on this sensor:
+# - libcamera has no OV02E10 data. Measured against the CSI-2 frame start
+#   events, exposure lands 4 frames and gain 3 frames after being written
+#   (libcamera assumed 2 and 1); gain is code/16 and black level 64.
+# - The AGC now steps from its commanded values and waits until a frame shows
+#   them, instead of rescaling stale readbacks, which made it oscillate.
+# - It meters highlights as well as the mean, so a lit face in a dark room is
+#   not clipped, and aims slightly below mid grey.
 
-- name: Install DKMS, kernel headers, libcamera, and the webcam relay
+- name: Install DKMS, kernel headers, the webcam relay, and libcamera build tools
   ansible.builtin.apt:
     name:
       - dkms
       - linux-headers-amd64
-      - libcamera-ipa
-      - libcamera-tools
       - v4l-utils
       - v4l2loopback-dkms
-      - gstreamer1.0-libcamera
       - gstreamer1.0-plugins-base
       - gstreamer1.0-plugins-good
       - gstreamer1.0-tools
+      - meson
+      - ninja-build
+      - pkg-config
+      - patch
+      - python3-jinja2
+      - python3-ply
+      - python3-yaml
+      - libyaml-dev
+      - libssl-dev
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
     state: present
     install_recommends: false
+
+# Debian's plugin registers the same libcamerasrc element against libcamera 0.4.
+- name: Remove Debian's libcamera GStreamer plugin
+  ansible.builtin.apt:
+    name: gstreamer1.0-libcamera
+    state: absent
+
+- name: Create the patched libcamera source directory
+  ansible.builtin.file:
+    path: /usr/local/src/libcamera-pucc
+    state: directory
+    mode: '0755'
+
+- name: Download the libcamera 0.7.2 source
+  ansible.builtin.get_url:
+    url: https://deb.debian.org/debian/pool/main/libc/libcamera/libcamera_0.7.2.orig.tar.gz
+    dest: /usr/local/src/libcamera-pucc/libcamera_0.7.2.orig.tar.gz
+    checksum: sha256:e27f5670fe9443eebc8e2f24235cd20b533324ef481a3684d34c78f1c3a12afb
+    mode: '0644'
+
+- name: Copy the OV02E10 and AGC libcamera patch
+  ansible.builtin.copy:
+    src: libcamera-0.7.2-pucc-ov02e10.patch
+    dest: /usr/local/src/libcamera-pucc/libcamera-0.7.2-pucc-ov02e10.patch
+    mode: '0644'
+
+# Rebuilds only when the source tarball or the patch changes.
+- name: Build and install patched libcamera into /opt/libcamera-pucc
+  ansible.builtin.shell:
+    executable: /bin/sh
+    chdir: /usr/local/src/libcamera-pucc
+    cmd: |
+      set -eu
+      prefix=/opt/libcamera-pucc
+      want=$(sha256sum libcamera_0.7.2.orig.tar.gz libcamera-0.7.2-pucc-ov02e10.patch | cut -d' ' -f1 | tr '\n' ' ')
+      if [ -f "$prefix/.build-inputs" ] && [ "$(cat "$prefix/.build-inputs")" = "$want" ]; then
+        exit 0
+      fi
+      rm -rf src build
+      mkdir src
+      tar -xzf libcamera_0.7.2.orig.tar.gz -C src --strip-components=1
+      patch -d src -p1 < libcamera-0.7.2-pucc-ov02e10.patch
+      meson setup build src --prefix="$prefix" --buildtype=release \
+        -Dpipelines=simple -Dipas=simple -Dgstreamer=enabled -Dsoftisp-gpu=disabled \
+        -Dcam=disabled -Dqcam=disabled -Dv4l2=disabled -Dlc-compliance=disabled \
+        -Ddocumentation=disabled -Dpycamera=disabled -Dtracing=disabled \
+        -Dudev=disabled -Dlibdw=disabled -Dlibunwind=disabled -Dandroid=disabled
+      ninja -C build
+      rm -rf "$prefix"
+      meson install -C build
+      echo "$want" > "$prefix/.build-inputs"
+      echo rebuilt
+  register: workstation_libcamera_build
+  changed_when: "'rebuilt' in workstation_libcamera_build.stdout"
+  when: not ansible_check_mode
 
 - name: Create the OV02E10 DKMS source directory
   ansible.builtin.file:
@@ -135,4 +208,6 @@
       Description=Relay the IPU6 camera to the Pucc Webcam loopback device
 
       [Service]
+      Environment=LD_LIBRARY_PATH=/opt/libcamera-pucc/lib/x86_64-linux-gnu
+      Environment=GST_PLUGIN_PATH=/opt/libcamera-pucc/lib/x86_64-linux-gnu/gstreamer-1.0
       ExecStart=/usr/bin/gst-launch-1.0 -e libcamerasrc ! video/x-raw,width=1920,height=1080 ! videoconvert n-threads=4 ! videoscale n-threads=4 ! video/x-raw,format=YUY2,width=1280,height=720 ! v4l2sink device=/dev/video60 sync=false
