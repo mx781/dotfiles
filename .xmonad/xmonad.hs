@@ -132,6 +132,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
   -- , ((winMask, xK_f), spawn "rofi -show fb -modi fb:~/linux/rofi-file-browser.sh")
   , ((winMask, xK_q), spawn "killall conky dzen2 trayer" >> (restart "/home/maksis/.xmonad/xmonad-x86_64-linux" True))
   , ((winMask .|. shiftMask, xK_l), spawn "xsecurelock")
+  , ((winMask .|. altMask, xK_w), spawn "systemctl --user is-active -q webcam && systemctl --user stop webcam || systemctl --user start webcam")
 
 
   , ((0, 0xffc8), lowerVolume 4 >>= alert)
