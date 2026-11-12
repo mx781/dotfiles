@@ -90,6 +90,11 @@
           # to opt in via the manual toggle. P1 defaults to power/control="on"
           # in the udev rule below to prevent X server stalls.
           options nvidia NVreg_DynamicPowerManagement=0x02
+          # Save video memory across suspend. The nvidia-suspend/resume
+          # services enabled below expect this; without it VRAM contents are
+          # lost on S3 and Xorg can die shortly after resume.
+          options nvidia NVreg_PreserveVideoMemoryAllocations=1
+          options nvidia NVreg_TemporaryFilePath=/var/tmp
       notify: Update the initramfs
 
     - name: Configure the profile's discrete GPU runtime power policy
