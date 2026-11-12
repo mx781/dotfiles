@@ -8,21 +8,19 @@
 # reimplement any of that -- it wraps TLP for manual overrides and adds the
 # one thing TLP must not touch: the discrete GPU.
 #
-# The dGPU stays PINNED AWAKE in both modes, on purpose. Letting it reach
-# D3cold blocks the X server for ~1.5s on every resume, which reads as the
-# whole desktop freezing for a second about once a minute (measured: an 8ms X
-# round-trip became 1518/1618/1568ms). That costs roughly 9-16 min of runtime
-# per hour on battery, which is the deliberate trade. `dgpu auto` is the
-# manual escape hatch when you want the watts back.
+# The dGPU follows its own switch, not TLP's profile. `dgpu on` (the default)
+# keeps it in X and pinned awake, because RTD3 resumes block the X server for
+# ~1.5s each; `dgpu off` restarts X without it so it can sleep (~10W back).
+# The modes below only re-pin it under `dgpu on`, and never restart X.
 #
 #   power-mode            show the whole picture
-#   power-mode ac         force TLP's AC profile (performance), dGPU pinned
-#   power-mode battery    force TLP's battery profile (saving), dGPU pinned
+#   power-mode ac         force TLP's AC profile (performance)
+#   power-mode battery    force TLP's battery profile (saving)
 #   power-mode auto       hand control back to the real power source
 #
 # TODO: a third, aggressive mode -- "stingy" / "longlife" -- for when runtime
 # beats everything. Unlike the modes above it would accept visible
-# regressions: unpin the dGPU (back to RTD3, freezes and all), kill known
+# regressions: `dgpu off` (restarts X), kill known
 # hogs (Telegram, Blender, spare Chromium profiles), turn off wifi and
 # Bluetooth, drop screen brightness. Device tunables are NOT where the wins
 # are -- TLP already handles those, and the smartcard reader people blame is
@@ -72,17 +70,17 @@ status() {
 
     if [ -e "$DGPU_OVERRIDE" ]; then
         echo
-        echo 'NOTE  dGPU is on a manual RTD3 override, so the power-change hook'
-        echo '      will leave it alone. Run `dgpu on` to clear it.'
+        echo 'NOTE  dGPU is off (out of X, allowed to sleep), so the power-change'
+        echo '      hook leaves it alone. `dgpu on` brings it back (restarts X).'
     fi
 }
 
-# Pin the GPU unless the user deliberately asked for RTD3.
+# Re-pin the GPU unless it is deliberately `dgpu off`. Never restarts X.
 assert_dgpu() {
     if [ -e "$DGPU_OVERRIDE" ]; then
-        echo "dGPU left on its manual RTD3 override (\`dgpu on\` clears it)"
+        echo "dGPU left off (\`dgpu on\` brings it back, restarting X)"
     else
-        "$HERE/dgpu-power" on
+        "$HERE/dgpu-power" pin
     fi
 }
 

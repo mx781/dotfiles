@@ -1,29 +1,36 @@
 #!/bin/sh
-# Toggle runtime power management (RTD3) for the discrete NVIDIA GPU.
+# Switch the discrete NVIDIA GPU between two whole-session modes.
 #
-# Under RTD3 the dGPU reaches D3cold once idle, but the Xorg OutputClass makes
-# the X server a permanent client of it, so every resume blocks the whole
-# single-threaded server for ~1.5s. Measured on this machine: an X round-trip
-# went from 8ms to 1518/1618/1568ms across three consecutive resumes, which
-# presents as the desktop freezing for a second roughly once a minute while
-# typing and scrolling still register and replay afterwards.
+#   on   X loads the NVIDIA GPU as a secondary screen (PRIME offload, and the
+#        HDMI/Thunderbolt outputs, which are all wired to it on this chassis).
+#        The GPU is pinned awake: under RTD3 every resume blocks the
+#        single-threaded X server for ~1.5s (measured: an 8ms X round-trip
+#        became 1518/1618/1568ms), which reads as the desktop freezing about
+#        once a minute. Costs the card's idle draw, ~10W at P0.
+#   off  X starts without the NVIDIA GPU at all (AutoAddGPU false, via
+#        /etc/X11/p1-dgpu-off.conf), so nothing holds it and RTD3 can put it
+#        in D3cold with no freezes. Only the built-in panel works (and
+#        DisplayLink, which renders on Intel); prime-run GL/Vulkan does not.
+#        CUDA and nvidia-smi still work and wake the card on demand.
 #
-# The P1 nvidia role therefore pins the GPU awake by default. That is not free
-# -- it costs the card's idle draw for the whole battery session -- so this
-# script flips it back for stretches where runtime matters more than a smooth
-# desktop. Only ever matters on battery: TLP pins every PCI device awake on AC
-# regardless (RUNTIME_PM_ON_AC="on").
+# Switching restarts X -- every X client is closed. The `startx` wrapper in
+# .bash_aliases sees the restart request and starts X again in the new mode.
+# The mode lives in /run (tmpfs), so a reboot always comes back `on`.
 #
 #   dgpu-power            show current state
-#   dgpu-power on         pin awake  -- no freezes, costs idle watts
-#   dgpu-power auto       allow RTD3 -- saves watts, reintroduces the freezes
+#   dgpu-power on         GPU in X, pinned awake; restarts X if needed
+#   dgpu-power off        GPU out of X, allowed to sleep; restarts X if needed
 #   dgpu-power toggle     switch between the two
 #   dgpu-power measure    measure the real watt cost, on battery
+#   dgpu-power pin        re-pin awake unless `off` (power-mode's hook; no restart)
 set -eu
 
 BAT=/sys/class/power_supply/BAT0
 AC=/sys/class/power_supply/AC/online
+# Same path the p1-power-assert udev hook checks, so a power-source change
+# never re-pins the GPU behind an `off`.
 OVERRIDE=/run/p1-dgpu-manual-auto
+RESTART="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/p1-x-restart"
 
 die() { echo "dgpu-power: $*" >&2; exit 1; }
 
@@ -40,26 +47,51 @@ find_gpu() {
 }
 
 GPU=$(find_gpu) || die "no NVIDIA display controller found"
-[ -w "$GPU/power/control" ] || [ -r "$GPU/power/control" ] \
-    || die "$GPU/power/control is not readable"
+[ -r "$GPU/power/control" ] || die "$GPU/power/control is not readable"
 
 set_control() {
     # The sysfs node is root-owned; everything else here is unprivileged.
     echo "$1" | sudo tee "$GPU/power/control" >/dev/null
 }
 
-# The power-change hook re-pins the GPU on every AC/battery switch, so a
-# deliberate `dgpu auto` has to record that intent somewhere the hook can see
-# it -- otherwise unplugging would silently undo it. /run is tmpfs, so a
-# reboot always comes back pinned, which is the safe default.
-pin() {
-    set_control on
-    sudo rm -f "$OVERRIDE"
+mode() { if [ -e "$OVERRIDE" ]; then echo off; else echo on; fi; }
+
+# The xinit of this user's running X session, if any.
+x_session() { pgrep -u "$(id -u)" -x xinit | head -n 1; }
+
+# Whether the running X server holds the NVIDIA GPU open: its /dev/nvidia*
+# nodes or the card's own DRM nodes. Rootless Xorg runs as us, so its fd
+# table is readable.
+x_holds_gpu() {
+    nodes=$(ls "$GPU/drm" 2>/dev/null | sed 's|^|/dev/dri/|' | paste -sd'|' -)
+    pattern="/dev/nvidia${nodes:+|$nodes}"
+    for pid in $(pgrep -u "$(id -u)" -x Xorg); do
+        ls -l "/proc/$pid/fd" 2>/dev/null | grep -Eq -- "-> ($pattern)" && return 0
+    done
+    return 1
 }
 
-unpin() {
-    set_control auto
+restart_x() {
+    pid=$(x_session) || true
+    [ -n "$pid" ] || { echo "no X session running; plain \`startx\` will use this mode"; return 0; }
+    touch "$RESTART"
+    echo "restarting X in dgpu-$(mode) mode..."
+    # Last thing we do: if this runs from a terminal inside X, it dies here.
+    kill -TERM "$pid"
+}
+
+go_on() {
+    set_control on
+    sudo rm -f "$OVERRIDE"
+    if [ -n "$(x_session)" ] && ! x_holds_gpu; then restart_x
+    else echo "dgpu on: in X, pinned awake"; fi
+}
+
+go_off() {
     sudo touch "$OVERRIDE"
+    set_control auto
+    if [ -n "$(x_session)" ] && x_holds_gpu; then restart_x
+    else echo "dgpu off: out of X, free to reach D3cold"; fi
 }
 
 # Watts, or empty when the figure is unavailable (on AC, or a full battery
@@ -85,18 +117,26 @@ status() {
     susp=$(awk '{ printf "%.2f", $1 / 86400000 }' "$GPU/power/runtime_suspended_time")
 
     printf 'gpu        %s\n' "$(basename "$GPU")"
-    printf 'control    %s  (%s)\n' "$control" \
-        "$([ "$control" = on ] && echo 'pinned awake, no freezes' \
-                              || echo 'RTD3 allowed, expect ~1.5s freezes')"
+    printf 'mode       %s  (%s)\n' "$(mode)" \
+        "$([ "$(mode)" = on ] && echo 'in X, pinned awake' \
+                             || echo 'out of X, allowed to sleep')"
+    if [ -n "$(x_session)" ]; then
+        if x_holds_gpu; then x=yes; else x=no; fi
+        printf 'x holds    %s\n' "$x"
+        if { [ "$(mode)" = on ] && [ "$x" = no ]; } \
+        || { [ "$(mode)" = off ] && [ "$x" = yes ]; }; then
+            printf '           ^ X was started in the other mode; `dgpu %s` restarts it\n' "$(mode)"
+        fi
+    fi
+    printf 'control    %s\n' "$control"
     printf 'state      %s\n' "$state"
     printf 'lifetime   %s days active / %s days suspended\n' "$active" "$susp"
 
     if on_battery; then
         watts=$(read_watts)
-        printf 'power      battery%s\n' \
-            "${watts:+, drawing ${watts} W}"
+        printf 'power      battery%s\n' "${watts:+, drawing ${watts} W}"
     else
-        printf 'power      AC (TLP pins the GPU awake on AC regardless)\n'
+        printf 'power      AC\n'
     fi
 }
 
@@ -116,7 +156,7 @@ measure() {
     [ -n "$base" ] || die "could not read a power figure from $BAT"
     echo "  baseline (GPU awake):   $base W"
 
-    echo "Allowing RTD3 and waiting for D3cold (expect some freezes)..."
+    echo "Allowing RTD3 and waiting for D3cold$(x_holds_gpu && echo ' (X holds it: expect some freezes)')..."
     set_control auto
     waited=0
     while [ "$(cat "$GPU/power/runtime_status")" != suspended ]; do
@@ -147,24 +187,20 @@ measure() {
         printf "runtime lost        %.0f%% (%.0f min per hour you would have had)\n", \
             100 * d / b, 60 * d / b
         if (wh > 0)
-            printf "on this %.0f Wh pack  %.2f h pinned  vs  %.2f h with RTD3\n", wh, wh / b, wh / s
+            printf "on this %.0f Wh pack  %.2f h on  vs  %.2f h off\n", wh, wh / b, wh / s
     }'
 }
 
 case "${1:-status}" in
     status|"")  status ;;
-    on)         pin;   echo "dGPU pinned awake (no freezes, costs idle watts)" ;;
-    auto)       unpin; echo "dGPU may now reach D3cold (saves watts, expect ~1.5s freezes)" ;;
-    toggle)
-        if [ "$(cat "$GPU/power/control")" = on ]; then
-            unpin; echo "dGPU -> auto (saves watts, expect ~1.5s freezes)"
-        else
-            pin;   echo "dGPU -> on (pinned awake, no freezes)"
-        fi
-        ;;
+    on)         go_on ;;
+    off)        go_off ;;
+    toggle)     if [ "$(mode)" = on ]; then go_off; else go_on; fi ;;
+    pin)        [ "$(mode)" = off ] || set_control on ;;
     measure)    measure ;;
+    auto)       die "'auto' is now 'off' (takes the GPU out of X and restarts X)" ;;
     -h|--help|help)
-        sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
         ;;
-    *)  die "unknown command '$1' (try: status, on, auto, toggle, measure)" ;;
+    *)  die "unknown command '$1' (try: status, on, off, toggle, measure)" ;;
 esac
