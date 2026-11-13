@@ -46,7 +46,7 @@ local ok, err = xpcall(function()
       assert(vim.fn.getcwd() == main, 'Did not recover on ' .. trigger)
       assert(vim.api.nvim_get_current_buf() == buffer and vim.bo[buffer].modified,
         'Recovery changed or saved the current buffer')
-      assert(plugin.statusline():find('main:main', 1, true), 'Statusline did not recover')
+      assert(plugin.statusline():find('[wt main]', 1, true), 'Statusline did not recover')
     end
     -- Returning to a surviving non-Git directory must clear the recovery repo.
     vim.cmd.cd(vim.fn.fnameescape(tmp))

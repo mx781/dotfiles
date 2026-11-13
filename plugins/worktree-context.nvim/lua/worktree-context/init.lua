@@ -121,12 +121,30 @@ local function refresh()
   if not root then indicator = ''; return end
   local branch = git(root, { 'symbolic-ref', '--quiet', '--short', 'HEAD' })
   if not branch then branch = git(root, { 'rev-parse', '--short', 'HEAD' }) end
-  indicator = vim.fs.basename(root) .. ':' .. vim.trim(branch or '?')
+  indicator = vim.trim(branch or '?')
   vim.cmd.redrawstatus()
 end
 
+-- Bottom-right non-floating window of the tab, so the indicator is drawn once.
+local function rightmost_window()
+  local best, best_right, best_row
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_config(win).relative == '' then
+      local row, col = unpack(vim.api.nvim_win_get_position(win))
+      local right = col + vim.api.nvim_win_get_width(win)
+      if not best or right > best_right or (right == best_right and row > best_row) then
+        best, best_right, best_row = win, right, row
+      end
+    end
+  end
+  return best
+end
+
 function M.statusline()
-  return indicator ~= '' and (' [wt ' .. indicator:gsub('%%', '%%%%') .. ']') or ''
+  if indicator == '' then return '' end
+  -- %{} items run with the statusline's own window temporarily current.
+  if vim.o.laststatus ~= 3 and vim.api.nvim_get_current_win() ~= rightmost_window() then return '' end
+  return ' [wt ' .. indicator:gsub('%%', '%%%%') .. ']'
 end
 
 local function reroot_tree()

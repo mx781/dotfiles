@@ -50,9 +50,9 @@ override the chosen context.
 
 Normal cwd-based file and grep pickers now search the selected worktree. Buffers
 remain global, including the normal buffer picker. Visiting a buffer in another
-worktree never switches context. The statusline displays the active cwd's
-worktree directory and branch (or detached commit), which may differ from the
-visible file's worktree. It refreshes on directory changes and focus gain.
+worktree never switches context. The rightmost window's statusline displays the
+active cwd's branch (or detached commit), which may differ from the visible
+file's worktree. It refreshes on directory changes and focus gain.
 
 The selected worktree is remembered across Neovim restarts, independently for
 each repository. Starting in any checkout of a repository, or entering it with
