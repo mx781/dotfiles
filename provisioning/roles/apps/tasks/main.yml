@@ -113,11 +113,8 @@
 
 # - Chromium's xdg-desktop-portal secret storage silently fails without a
 #   portal or GNOME/KDE session, so pin the keyless "basic" store instead.
-# - Chromium's AccountReconcilor calls Google's /Logout endpoint on every
-#   startup because no account is signed into the browser itself (only the
-#   website), which it treats as a mismatch to fix. --disable-sync turns
-#   off the identity service that drives this, confirmed via net-log
-#   capture across repeated restarts.
+# - --disable-sync was an earlier attempt at the Google logouts below. It
+#   does not stop them; kept only because sync is unwanted anyway.
 - name: Work around Chromium session-cookie storage issues
   ansible.builtin.copy:
     dest: /etc/chromium.d/99-password-store
@@ -125,6 +122,42 @@
     content: |
       CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"
       CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-sync"
+  tags: [chromium]
+
+# Chromium signed Google out of the web roughly every 12 hours. With browser
+# sign-in allowed, DICE account consistency is on, but Google refuses Debian's
+# OAuth client an authorization code ("Missing authorization code due to OAuth
+# outage in Dice" in chrome://signin-internals), so the browser never holds a
+# token for the web account. DiceResponseHandler then locks AccountReconcilor
+# for kLockAccountReconcilorTimeoutHours (12h); once the lock lapses, or on
+# restart, the reconcilor sees a cookie account with no token and revokes the
+# web session. BrowserSignin=0 makes signin.allowed false, which disables DICE
+# and the reconcilor entirely. Takes effect on the next browser start.
+- name: Ensure Chromium managed policy directory exists
+  ansible.builtin.file:
+    path: /etc/chromium/policies/managed
+    state: directory
+    mode: '0755'
+  tags: [chromium]
+
+- name: Disable Chromium browser sign-in so DICE stops logging Google out
+  ansible.builtin.copy:
+    dest: /etc/chromium/policies/managed/browser-signin.json
+    mode: '0644'
+    content: |
+      {
+        "BrowserSignin": 0
+      }
+  tags: [chromium]
+
+# Hand-placed earlier attempt: a URLBlocklist entry for the reconcilor's
+# /Logout URL. Blocklists only cover navigations, not the browser's own
+# fetches, so it never had any effect.
+- name: Remove ineffective Chromium logout URL blocklist policy
+  ansible.builtin.file:
+    path: /etc/chromium/policies/managed/disable-signin.json
+    state: absent
+  tags: [chromium]
 
 - name: Check whether Telegram Desktop is already installed
   ansible.builtin.stat:
