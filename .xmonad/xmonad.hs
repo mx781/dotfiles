@@ -275,7 +275,9 @@ myMenuColors = "-nb '" ++ themeBackground ++ "' -nf '" ++ themeForeground ++ "' 
 myXmonadBar = "dzen2 -dock $(" ++ myDzenGeometry ++ " workspace) -ta 'l' -fn 'Carlito:size=11' -fg '" ++ themeForeground ++ "' -bg '" ++ themeBackground ++ "'"
 myStatusBar = "conky -b -c /home/maksis/.xmonad/.conky_dzen | dzen2 -dock $(" ++ myDzenGeometry ++ " status) -ta 'r' -fn 'Carlito:size=11' -bg '" ++ themeBackground ++ "' -fg '" ++ themeForeground ++ "'"
 -- trayer wants 0xRRGGBB, the palette stores #rrggbb.
-myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x" ++ drop 1 themeBackground ++ " --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor 1"
+-- Follow the primary monitor like dzen-geometry does: a fixed GDK index lands
+-- on whichever screen XRandR lists second (the ultrawide when side by side).
+myTrayer = "trayer --edge top --align right --SetDockType true --expand true --transparent true --tint 0x" ++ drop 1 themeBackground ++ " --alpha 0 --height 18 --widthtype pixel --width 100 --distancefrom right --distance 400 --monitor primary"
 
 myStartup = do
   docksStartupHook
