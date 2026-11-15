@@ -153,11 +153,31 @@
     name: bluetooth.service
     enabled: true
 
+# TLP ships with no charge thresholds: its defaults leave the battery to
+# charge to 100% and sit there, because capping charge trades runtime for
+# lifespan and that is the owner's call. On a laptop that mostly sits on AC,
+# holding a lithium cell at full voltage is what ages it, so cap at 80% and
+# only resume charging below 75% (the gap stops constant top-up cycling).
+# For a day away from the dock, `sudo tlp fullcharge` charges to 100% once;
+# the thresholds come back at the next reboot or `sudo tlp setcharge`.
+# Hardware without threshold support just ignores these.
+- name: Cap battery charge to preserve battery life
+  ansible.builtin.copy:
+    dest: /etc/tlp.d/20-charge-thresholds.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by Ansible (base role).
+      START_CHARGE_THRESH_BAT0=75
+      STOP_CHARGE_THRESH_BAT0=80
+  register: tlp_charge_thresholds
+
 - name: Enable TLP power management
   ansible.builtin.systemd_service:
     name: tlp.service
     enabled: true
-    state: started
+    state: "{{ 'restarted' if tlp_charge_thresholds is changed else 'started' }}"
 
 - name: Check for the workstation swapfile
   ansible.builtin.stat:
