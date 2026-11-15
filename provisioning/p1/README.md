@@ -146,11 +146,19 @@ prime-run glxinfo | grep 'OpenGL renderer'
 prime-run blender
 ```
 
-CUDA and `nvidia-smi` work without the wrapper. `dgpu auto` allows runtime
-suspend for battery savings, with the known resume stalls; `dgpu on` restores
-the default. The manual override lasts until cleared or rebooted. TLP and udev
-preserve this policy across power-source changes. Pucc retains its existing
-runtime-power-management policy.
+CUDA and `nvidia-smi` work without the wrapper. Keeping the GPU in X costs
+about 10 W on battery, so there is a whole-session switch:
+
+- `dgpu on` (default): X loads the GPU, so external monitors and `prime-run`
+  work; it is pinned awake to avoid the RTD3 resume stalls.
+- `dgpu off`: X restarts without the GPU (`/etc/X11/p1-dgpu-off.conf`), so it
+  can sleep with no stalls. Only the built-in panel works: HDMI and both
+  Thunderbolt DP outputs are wired to the NVIDIA GPU on this chassis.
+
+Switching closes every X client and relies on the `startx` wrapper in
+`.bash_aliases` to bring X back. `off` lasts until `dgpu on` or a reboot. TLP
+and udev preserve the choice across power-source changes. Pucc retains its
+existing runtime-power-management policy.
 
 `nvidia-persistenced` is deliberately not installed so manual runtime suspend
 remains available. Driver-level RTD3 remains enabled; P1's default is enforced
