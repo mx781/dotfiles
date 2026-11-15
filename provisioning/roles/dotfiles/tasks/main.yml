@@ -62,6 +62,31 @@
     - { src: "{{ dotfiles_repo }}/Pictures/bg-kristaps-ungurs.jpg", dest: "{{ target_home }}/Pictures/bg-kristaps-ungurs.jpg" }
     - { src: "{{ dotfiles_repo }}/Pictures/bg-karina-skrypnik.jpg", dest: "{{ target_home }}/Pictures/bg-karina-skrypnik.jpg" }
 
+# See .config/alsa-card-profile/mixer/paths/*.conf for what is overridden and
+# why. Only machines whose combo jack misdetects a microphone opt in.
+- name: Create the ALSA card-profile override directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/alsa-card-profile/mixer/paths"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: workstation_ignore_mic_jack | default(false)
+
+- name: Keep the internal microphone selected when the mic jack reports a plug
+  ansible.builtin.file:
+    src: "{{ dotfiles_repo }}/.config/alsa-card-profile/mixer/paths/{{ item }}"
+    dest: "{{ target_home }}/.config/alsa-card-profile/mixer/paths/{{ item }}"
+    state: link
+    force: true
+    follow: false
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  loop:
+    - analog-input-internal-mic.conf
+    - analog-input-mic.conf
+  when: workstation_ignore_mic_jack | default(false)
+
 - name: Inspect the user screen-layout path
   ansible.builtin.stat:
     path: "{{ target_home }}/.screenlayout"

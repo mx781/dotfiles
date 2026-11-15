@@ -128,6 +128,35 @@ ansible-playbook site.yml --ask-become-pass \
 systemctl --user restart wireplumber pipewire pipewire-pulse
 ```
 
+## Headphone jack steals the microphone
+
+P1's combo jack has two separately sensed pins on the Conexant CX11880
+codec: headphone out (node `0x16`) and an external mic (node `0x19`). When
+plain headphones go in, the codec sometimes also reports a mic — it depends
+on how the plug travels through the socket, hence the "replug until it
+works" ritual. `amixer -c 1 contents | grep -A2 "Jack'"` shows the result:
+`Mic Jack` should be `off` with headphones, and is `on` in the bad case.
+
+The kernel report alone is harmless; PipeWire's stock card-profile paths turn
+it into the fault. With `Mic Jack` on, `analog-input-internal-mic` becomes
+*unavailable* and `analog-input-mic` *available*, so WirePlumber moves
+capture to a microphone that does not exist, and the internal one cannot
+even be chosen by hand.
+
+`workstation_ignore_mic_jack: true` makes the `dotfiles` stage link two
+overrides into `~/.config/alsa-card-profile/mixer/paths/`. They differ from
+stock only in the `[Jack Mic]` section: a plugged mic jack leaves both
+inputs at `unknown`, so the internal mic wins on priority and stays put. A
+real headset mic still works, but must be selected in pavucontrol once.
+
+The overrides are full copies of the pipewire 1.4.2 files, so re-diff them
+against `/usr/share/alsa-card-profile/mixer/paths/` after a PipeWire upgrade.
+They are read when the card is probed:
+
+```sh
+systemctl --user restart wireplumber
+```
+
 ## NVIDIA driver and PRIME render offload
 
 The `nvidia` stage is a no-op on machines without an NVIDIA display
