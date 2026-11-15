@@ -9,8 +9,8 @@
 #        once a minute. Costs the card's idle draw, ~10W at P0.
 #   off  X starts without the NVIDIA GPU at all (AutoAddGPU false, via
 #        /etc/X11/p1-dgpu-off.conf), so nothing holds it and RTD3 can put it
-#        in D3cold with no freezes. Only the built-in panel works (and
-#        DisplayLink, which renders on Intel); prime-run GL/Vulkan does not.
+#        in D3cold with no freezes. Only the built-in panel works: AutoAddGPU
+#        also drops DisplayLink's evdi outputs. prime-run GL/Vulkan does not.
 #        CUDA and nvidia-smi still work and wake the card on demand.
 #
 # Switching restarts X -- every X client is closed. The `startx` wrapper in
