@@ -11,3 +11,7 @@ workstation_backlight_device: intel_backlight
 workstation_swapfile_size_mb: 8192
 workstation_storage_enabled: false
 workstation_nvidia_enabled: true
+# Dell accepts start 50-95, stop 55-100, gap >= 5; TLP switches charge_types to Custom.
+workstation_battery_charge_thresholds:
+  start: 50
+  stop: 80

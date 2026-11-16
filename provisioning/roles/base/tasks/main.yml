@@ -158,6 +158,22 @@
     enabled: true
     state: started
 
+# Keeping a mostly docked battery below full slows calendar aging; run
+# `sudo tlp fullcharge BAT0` before a day away from the desk.
+- name: Limit the battery charge range
+  when: workstation_battery_charge_thresholds is defined
+  ansible.builtin.copy:
+    dest: /etc/tlp.d/20-battery-thresholds.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by {{ workstation_name }}.
+      START_CHARGE_THRESH_BAT0={{ workstation_battery_charge_thresholds.start }}
+      STOP_CHARGE_THRESH_BAT0={{ workstation_battery_charge_thresholds.stop }}
+  notify: Apply TLP settings
+  tags: [battery]
+
 - name: Check for the workstation swapfile
   ansible.builtin.stat:
     path: /swapfile

@@ -1,0 +1,4 @@
+---
+- name: Apply TLP settings
+  ansible.builtin.command:
+    cmd: tlp start
