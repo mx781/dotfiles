@@ -21,4 +21,9 @@ clipmenud &
 # DISPLAY here for the same reason as clipmenud, so start it from the session.
 dunst &
 
+# Lock the screen before suspend (and on X screensaver idle). -l holds
+# logind's sleep inhibitor until xsecurelock has grabbed the display, so
+# resume lands on the lock screen rather than a briefly visible desktop.
+xss-lock -n /usr/libexec/xsecurelock/dimmer -l -- xsecurelock &
+
 exec xmonad
