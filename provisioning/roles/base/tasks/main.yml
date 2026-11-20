@@ -137,6 +137,7 @@
       - xinit
       - xorg
       - xsecurelock
+      - xss-lock
       - vlc
     state: present
     update_cache: true
