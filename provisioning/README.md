@@ -53,6 +53,17 @@ ansible-playbook site.yml --ask-become-pass \
   -e workstation_profile=pucc --tags aws-cli
 ```
 
+The `base` role pins DNS to the profile's `workstation_dns_servers` through a
+NetworkManager global DNS drop-in, so DHCP-supplied name servers and search
+domains are ignored on every network. Networks that block outside DNS (some
+captive portals) need `/etc/NetworkManager/conf.d/80-pinned-dns.conf` moved
+aside temporarily. To apply only this:
+
+```sh
+ansible-playbook site.yml --ask-become-pass \
+  -e workstation_profile=p1 --tags dns
+```
+
 The dotfiles role links `~/.screenlayout` to `.screenlayout/p1` or
 `.screenlayout/pucc` according to the selected profile. An existing local directory
 is first moved to `~/.screenlayout.backup-<timestamp>`. Shell aliases are loaded

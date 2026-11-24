@@ -11,3 +11,7 @@ workstation_backlight_device: intel_backlight
 workstation_swapfile_size_mb: 8192
 workstation_storage_enabled: true
 workstation_nvidia_enabled: true
+workstation_dns_servers:
+  - 1.1.1.1
+  - 1.0.0.1
+  - 8.8.8.8

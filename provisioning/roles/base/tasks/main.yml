@@ -70,6 +70,28 @@
     state: present
     update_cache: true
 
+# A valid global default domain makes NetworkManager ignore the name servers
+# and search domains every connection hands out over DHCP, on any network.
+# Tailscale forwards non-tailnet queries to whatever NetworkManager writes, so
+# MagicDNS keeps working on top. glibc reads at most three name servers.
+- name: Pin public DNS resolvers for every network
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/80-pinned-dns.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [global-dns-domain-*]
+      servers={{ workstation_dns_servers | join(',') }}
+  register: pinned_dns
+  tags: [dns]
+
+- name: Reload NetworkManager DNS configuration without reconnecting Wi-Fi
+  ansible.builtin.command: nmcli general reload conf,dns-full
+  when: pinned_dns is changed
+  changed_when: true
+  tags: [dns]
+
 - name: Grant the principal user sudo access
   ansible.builtin.user:
     name: "{{ target_user }}"
