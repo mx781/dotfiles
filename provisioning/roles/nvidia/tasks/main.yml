@@ -29,6 +29,12 @@
 # unplugging is what armed the freezes. The P1 udev rule pins power/control
 # at bind, and the TLP drop-in and assert hook preserve that policy across
 # power-source changes. Driver-level RTD3 stays available for manual overrides.
+#
+# The way out of that trade is to take X off the GPU rather than to let a GPU
+# X is using sleep: `dgpu off` starts X with /etc/X11/p1-dgpu-off.conf
+# (AutoAddGPU false), so no X client holds the card and RTD3 sleeps it with
+# no stalls. Every external output is wired to the dGPU on this chassis
+# (HDMI and both Thunderbolt DP), so that mode is built-in panel only.
 
 - name: Detect an NVIDIA display controller
   ansible.builtin.shell:
@@ -85,9 +91,9 @@
           options nvidia-drm modeset=1
           # RTD3 runtime power management, left ENABLED at the driver level
           # on purpose. 0x00 would refuse to runtime suspend at all, which
-          # also makes scripts/dgpu-power's "auto" mode a no-op. Keeping the
+          # also makes scripts/dgpu-power's "off" mode a no-op. Keeping the
           # capability here lets Pucc suspend normally and allows P1
-          # to opt in via the manual toggle. P1 defaults to power/control="on"
+          # to opt in via `dgpu off`. P1 defaults to power/control="on"
           # in the udev rule below to prevent X server stalls.
           options nvidia NVreg_DynamicPowerManagement=0x02
       notify: Update the initramfs
@@ -142,7 +148,7 @@
           # Managed by P1. Re-pin the discrete GPU after a power-source change.
           #
           # Normally a no-op: the GPU is denylisted in TLP and pinned at bind.
-          # A deliberate `dgpu auto` leaves the override file behind, and this
+          # A deliberate `dgpu off` leaves the override file behind, and this
           # respects it so unplugging does not silently undo the user's choice.
           set -eu
 
@@ -197,6 +203,24 @@
               MatchDriver    "nvidia-drm"
               Driver         "nvidia"
               Option         "AllowEmptyInitialConfiguration"
+          EndSection
+
+    # Loaded only by the .bash_aliases startx wrapper while `dgpu off` is in
+    # effect. Rootless Xorg accepts -config only as a path relative to
+    # /etc/X11, hence the location. xorg.conf.d is still read alongside it,
+    # but with AutoAddGPU off the OutputClass above never gets a device.
+    - name: Install the dGPU-off Xorg config
+      when: workstation_profile == 'p1'
+      ansible.builtin.copy:
+        dest: /etc/X11/p1-dgpu-off.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by P1. Used by `startx` under `dgpu off`: X ignores the
+          # NVIDIA GPU so it can runtime-suspend without stalling the server.
+          Section "ServerFlags"
+              Option "AutoAddGPU" "false"
           EndSection
 
     - name: Install the prime-run offload wrapper

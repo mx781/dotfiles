@@ -315,7 +315,7 @@ This is the human-review entry point.  Raw supporting evidence is available in
 EOF
         report_checks 'System and dotfiles' '^(apt-|slack-source|command:(acpi|amixer|cmake|curl|ffmpeg|git|htop|killall|ncdu|powertop|rg|rsync|tmux|unzip|wget)|nerd-font|ntp-|timesync-|bluetooth-|swapfile-active|sudo-access|dotfiles-|link:|bash-startup|theme-)'
         report_checks 'Developer tooling' '^(command:(docker|node|npm|npx|corepack|tree-sitter|claude|codex|uv|cargo|rustc)|version:|docker-)'
-        report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock))'
+        report_checks 'Desktop integration' '^(x-session|alacritty-|conky-|keyboard-|clipmenu-|xmonad-|dzen-|command:(arandr|conky|dmenu_run|feh|maim|nnn|pavucontrol|scrot|wmctrl|xclip|xdg-open|xinit|xsecurelock|xss-lock))'
         report_checks 'Desktop applications' '^(command:(blender|brave-browser|chromium|firefox|gopass|libreoffice|pcmanfm|rclone|Telegram|slack|vlc|nvim|vim)|blender-version|nvim-|vim-nvim|gopass-cli|rclone-version|screenshot:|visual-cleanup)'
         printf '## Visual review\n\n'
         report_screenshot desktop 'Default desktop, Dzen, and Conky'
@@ -371,7 +371,7 @@ check_base() {
     local commands=(
         acpi alacritty amixer arandr cmake conky curl dmenu_run ffmpeg feh fc-match
         fzf git htop maim ncdu nnn pavucontrol powertop killall rg rsync scrot tmux
-        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock
+        unzip vlc wget wmctrl xclip xdg-open xinit xsecurelock xss-lock
     )
     local command
     for command in "${commands[@]}"; do check_command "$command"; done

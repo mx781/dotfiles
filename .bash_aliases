@@ -54,20 +54,46 @@ brightness() {
 
 ## power
 # TLP owns the battery/AC profile and switches it automatically on every
-# power-source change; these wrap it for manual overrides and keep the
-# discrete GPU pinned awake in both modes. The GPU is pinned because every
-# D3cold resume blocks the X server for ~1.5s, which reads as the whole
-# desktop freezing for a second about once a minute.
+# power-source change; these wrap it for manual overrides. The discrete GPU
+# has its own whole-session switch, because keeping it in X means pinning it
+# awake (each RTD3 resume freezes the X server for ~1.5s):
 #   pmode           source, tlp profile, gpu state and draw
 #   ac / battery    force one profile until the next power change
-#   dgpu auto       hand the watts back, freezes and all (manual override)
-#   dgpu measure    what pinning actually costs, in watts
+#   dgpu on         GPU in X: external monitors, prime-run; ~10W (default)
+#   dgpu off        GPU out of X, sleeping; built-in panel only. Restarts X
+#   dgpu measure    what `on` actually costs, in watts
 pmode() {
     "$DOTFILES/scripts/power-mode" "$@"
 }
 
 dgpu() {
     "$DOTFILES/scripts/dgpu-power" "$@"
+}
+
+# startx that honours `dgpu off` and restarts X when dgpu asks it to. Plain
+# `startx` only, so explicit arguments still pass straight through. A no-op
+# difference on machines without the off-mode config (Pucc).
+startx() {
+    local restart="${XDG_RUNTIME_DIR:-/run/user/$UID}/p1-x-restart" off started
+    while :; do
+        rm -f "$restart"
+        off=
+        if [ $# -eq 0 ] && [ -e /run/p1-dgpu-manual-auto ] \
+            && [ -f /etc/X11/p1-dgpu-off.conf ]; then
+            off=1
+        fi
+        started=$SECONDS
+        if [ -n "$off" ]; then
+            command startx -- -nolisten tcp -config p1-dgpu-off.conf
+        else
+            command startx "$@"
+        fi
+        [ -e "$restart" ] && continue
+        if [ -n "$off" ] && [ $((SECONDS - started)) -lt 10 ]; then
+            echo "X exited right away in dgpu-off mode; \`dgpu on\` then \`startx\` to go back" >&2
+        fi
+        return
+    done
 }
 
 # Shadows the rarely-used `ac` from the acct package, which is not installed.
