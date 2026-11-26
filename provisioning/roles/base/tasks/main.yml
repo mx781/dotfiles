@@ -104,6 +104,8 @@
       - feh
       - fontconfig
       - fonts-firacode
+      # Fira Code has no Hangul; Alacritty falls back to Noto CJK via fontconfig.
+      - fonts-noto-cjk
       - fonts-noto-color-emoji
       - fzf
       - git
